@@ -1,6 +1,7 @@
-// IndexedDB: the picked directory handle plus the cumulative page index.
+// IndexedDB: the picked directory handle, the cumulative page index, and the
+// individual visit timestamps behind it.
 const DB_NAME = "chrome-backup";
-const DB_VERSION = 1;
+const DB_VERSION = 2;
 
 function open() {
   return new Promise((resolve, reject) => {
@@ -12,6 +13,12 @@ function open() {
         const s = db.createObjectStore("pages", { keyPath: "url" });
         s.createIndex("host", "host");
         s.createIndex("first", "first");
+      }
+      // v2: one row per visit. The composite key makes re-runs idempotent -
+      // writing the same visit twice replaces it instead of duplicating it.
+      if (!db.objectStoreNames.contains("visits")) {
+        const s = db.createObjectStore("visits", { keyPath: ["url", "t"] });
+        s.createIndex("t", "t");
       }
     };
     req.onsuccess = () => resolve(req.result);
@@ -128,3 +135,55 @@ export function allPages() {
 }
 
 export const clearPages = () => run("pages", "readwrite", s => s.clear());
+
+/* ---------- Individual visits ---------- */
+
+// rows: [{ url, t }]. Returns the calendar years touched, so only those year
+// files have to be rewritten on export.
+export function mergeVisits(rows) {
+  const years = new Set();
+  return run("visits", "readwrite", (store, set) => {
+    for (const row of rows) {
+      if (!row.url || !row.t) continue;
+      years.add(new Date(row.t).getFullYear());
+      store.put({ url: row.url, t: row.t });
+    }
+    set(years);
+  });
+}
+
+export const countVisits = () =>
+  run("visits", "readonly", (s, set) => { const r = s.count(); r.onsuccess = () => set(r.result); });
+
+// All known timestamps for one URL, oldest first.
+export function visitsForUrl(url) {
+  return run("visits", "readonly", (store, set) => {
+    const range = IDBKeyRange.bound([url, 0], [url, Number.MAX_SAFE_INTEGER]);
+    const out = [];
+    const cur = store.openCursor(range);
+    cur.onsuccess = () => {
+      const c = cur.result;
+      if (!c) return set(out);
+      out.push(c.value.t);
+      c.continue();
+    };
+  });
+}
+
+// Every visit in one calendar year, for the per-year export files.
+export function visitsInYear(year) {
+  const from = new Date(year, 0, 1).getTime();
+  const to = new Date(year + 1, 0, 1).getTime();
+  return run("visits", "readonly", (store, set) => {
+    const out = [];
+    const cur = store.index("t").openCursor(IDBKeyRange.bound(from, to, false, true));
+    cur.onsuccess = () => {
+      const c = cur.result;
+      if (!c) return set(out);
+      out.push(c.value);
+      c.continue();
+    };
+  });
+}
+
+export const clearVisits = () => run("visits", "readwrite", s => s.clear());

@@ -33,8 +33,9 @@ D:\Chrome Backup\
 ├── History\
 │   └── history-2026-09-13.txt        time, title and URL of every visit
 └── Index\
-    ├── page-index.csv                cumulative, opens in Excel
-    └── page-index.jsonl              cumulative, machine-readable
+    ├── page-index.csv                one row per URL, cumulative, opens in Excel
+    ├── page-index.jsonl              same, machine-readable
+    └── visits-2026.jsonl             every individual visit, one file per year
 ```
 
 Daily files are subject to the retention setting (365 days by default, `0` means
@@ -53,6 +54,11 @@ are ignored:
 | `jira` | hits in the host, in the path, or in the title |
 
 Results are sorted oldest first visit first — usually the answer you came for.
+Click the visit count to expand a row into the individual timestamps.
+
+Chrome keeps counting visits after it has discarded the underlying timestamps, so
+its total can exceed the number of timestamps anyone still has. When that happens
+the expanded row says so rather than quietly showing fewer.
 
 ## The one caveat
 
@@ -73,7 +79,8 @@ because it needs setup on every machine.
 `.html` from `Bookmarks\`.
 
 **The index after a reinstall:** Settings → *Import the index from the backup
-folder*. Reads `Index\page-index.jsonl` back in, first-visit dates included.
+folder*. Reads `Index\page-index.jsonl` and every `Indexisits-<year>.jsonl`
+back in, so both the summary and the individual timestamps survive.
 
 ## Layout
 
@@ -92,11 +99,12 @@ Permissions: `bookmarks`, `history`, `storage`, `alarms`, `unlimitedStorage`.
 ## Known limits
 
 - The index can only backfill what Chrome still holds on the first run (~90 days).
-  From then on it is gapless.
+  From then on it is gapless. The same applies to the individual timestamps.
 - Local history only. History synced from other devices is not exposed to
   extensions.
 - Incognito sessions never appear.
-- Every run rewrites the complete index. With a very large index (>200,000 pages)
+- Every run rewrites the complete page index, plus the visit file of any year
+  that got new rows — in practice only the current one. With a very large archive
   that is a few tens of MB per day.
 
 ## Self-test

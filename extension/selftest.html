@@ -92,6 +92,28 @@ check("formatDate", U.formatDate(Date.UTC(2026, 0, 5, 12)), "2026-01-05");
 const back = jsonl.split("\n").filter(Boolean).map(l => JSON.parse(l));
 check("roundtrip: firstVisit parses", isNaN(Date.parse(back[0].firstVisit)), false);
 
+// ---- individual visits ----
+check("history: allVisits collected", h.allVisits.length, 4);
+const vj = C.visitsToJsonl(h.allVisits);
+const vFirst = JSON.parse(vj.split("\n")[0]);
+check("visits jsonl: keys", Object.keys(vFirst).join(","), "url,at");
+check("visits jsonl: oldest first", vFirst.at, "2026-02-25T10:00:00.000Z");
+check("visits jsonl: roundtrip parses", isNaN(Date.parse(vFirst.at)), false);
+
+// Real IndexedDB below - the store, the composite key and idempotency.
+await D.clearVisits();
+const years = await D.mergeVisits(h.allVisits);
+check("mergeVisits: years touched", [...years].sort().join(","), "2026");
+check("countVisits after first merge", await D.countVisits(), 4);
+await D.mergeVisits(h.allVisits);
+check("countVisits after re-run (idempotent)", await D.countVisits(), 4);
+const forUrl = await D.visitsForUrl("https://github.com/anthropics/claude-code");
+check("visitsForUrl: count", forUrl.length, 3);
+check("visitsForUrl: sorted oldest first", forUrl[0] < forUrl[2], true);
+check("visitsInYear 2026", (await D.visitsInYear(2026)).length, 4);
+check("visitsInYear 2025", (await D.visitsInYear(2025)).length, 0);
+await D.clearVisits();
+
 log("");
 log(fails ? `${fails} FAILURE(S)` : "ALL CHECKS PASSED");
 log("--- history-2026-09-13.txt ---");

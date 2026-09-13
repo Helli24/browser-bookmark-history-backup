@@ -1,6 +1,6 @@
 // Options page: target folder, what to back up, schedule, search, maintenance.
 import { getSettings, setSettings, importIndex, DEFAULTS } from "./lib/run.js";
-import { searchPages, countPages } from "./lib/db.js";
+import { searchPages, countPages, countVisits, visitsForUrl } from "./lib/db.js";
 import {
   permissionState, pickFolder, regrantPermission, backupNow,
   formatWhen, formatDate, timeAgo
@@ -64,7 +64,7 @@ async function render() {
   const alarm = await chrome.alarms.get("daily");
   el.nextRun.textContent = alarm ? `next run: ${formatWhen(alarm.scheduledTime)}` : "";
 
-  const parts = [`${n(await countPages())} pages indexed`];
+  const parts = [`${n(await countPages())} pages indexed`, `${n(await countVisits())} visits recorded`];
   if (lastRun) {
     parts.push(lastRun.ok
       ? `last backup ${formatWhen(lastRun.at)}, ${lastRun.written} files`
@@ -125,6 +125,7 @@ async function doBackup() {
     if (run.info.bookmarks) t.push(`${n(run.info.bookmarks)} bookmarks`);
     if (run.info.visits) t.push(`${n(run.info.visits)} visits`);
     if (run.info.indexAdded) t.push(`${n(run.info.indexAdded)} new pages indexed`);
+    if (run.info.visitsTotal) t.push(`${n(run.info.visitsTotal)} visits recorded`);
     if (run.deleted) t.push(`${run.deleted} old files removed`);
     setMsg(el.backupMsg, t.join(", "), "ok");
   } catch (e) {
@@ -177,7 +178,14 @@ async function doSearch() {
 
     const count = document.createElement("td");
     count.className = "num";
-    count.textContent = n(r.count);
+    const toggle = document.createElement("button");
+    toggle.className = "count";
+    toggle.type = "button";
+    toggle.textContent = n(r.count);
+    toggle.setAttribute("aria-expanded", "false");
+    toggle.title = "Show the individual visits";
+    toggle.addEventListener("click", () => toggleDetail(tr, toggle, r));
+    count.appendChild(toggle);
 
     const url = document.createElement("td");
     url.className = "url";
@@ -199,6 +207,62 @@ async function doSearch() {
   }));
 }
 
+// Expands one result row into the individual visit timestamps.
+async function toggleDetail(tr, toggle, row) {
+  const open = toggle.getAttribute("aria-expanded") === "true";
+  if (open) {
+    toggle.setAttribute("aria-expanded", "false");
+    tr.nextElementSibling?.classList.contains("detail") && tr.nextElementSibling.remove();
+    return;
+  }
+  toggle.setAttribute("aria-expanded", "true");
+
+  const detail = document.createElement("tr");
+  detail.className = "detail";
+  const cell = document.createElement("td");
+  cell.colSpan = 4;
+  cell.textContent = "loading…";
+  detail.appendChild(cell);
+  tr.after(detail);
+
+  const times = await visitsForUrl(row.url);
+  cell.textContent = "";
+
+  if (!times.length) {
+    cell.className = "muted";
+    cell.textContent = "No individual timestamps stored for this page yet.";
+    return;
+  }
+
+  const box = document.createElement("div");
+  box.className = "times";
+  for (const t of times) {
+    const chip = document.createElement("span");
+    chip.className = "time";
+    const d = new Date(t);
+    const p = x => String(x).padStart(2, "0");
+    chip.textContent = formatDate(t);
+    const clock = document.createElement("span");
+    clock.className = "clock";
+    clock.textContent = `  ${p(d.getHours())}:${p(d.getMinutes())}`;
+    chip.appendChild(clock);
+    box.appendChild(chip);
+  }
+  cell.appendChild(box);
+
+  // Chrome drops visit rows after ~90 days but keeps counting, so its total can
+  // exceed the timestamps anyone still has. Say so instead of looking wrong.
+  const missing = (row.count || 0) - times.length;
+  if (missing > 0) {
+    const note = document.createElement("div");
+    note.className = "note";
+    note.textContent =
+      `Chrome counts ${n(row.count)} visits in total; the ${n(missing)} oldest no longer have ` +
+      `a timestamp. Everything from here on is recorded in full.`;
+    cell.appendChild(note);
+  }
+}
+
 /* ---------------- Maintenance ---------------- */
 
 el.btnImport.addEventListener("click", async () => {
@@ -211,7 +275,8 @@ el.btnImport.addEventListener("click", async () => {
 
     const r = await importIndex(dir);
     setMsg(el.importMsg,
-      `Read ${n(r.read)} rows, ${n(r.added)} of them new – the index now holds ${n(r.total)} pages.`,
+      `Read ${n(r.read)} index rows (${n(r.added)} new) and ${n(r.visitsRead)} visits – ` +
+      `the database now holds ${n(r.total)} pages and ${n(r.visitsTotal)} visits.`,
       "ok");
     await doSearch();
   } catch (e) {

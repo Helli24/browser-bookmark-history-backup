@@ -1,8 +1,11 @@
 // Orchestration: settings, build the files, write them, prune old ones.
-import { loadDirHandle, mergePages, allPages, countPages } from "./db.js";
+import {
+  loadDirHandle, mergePages, allPages, countPages,
+  mergeVisits, visitsInYear, countVisits
+} from "./db.js";
 import {
   dateKey, collectBookmarks, collectHistory, historyToText,
-  indexToCsv, indexToJsonl
+  indexToCsv, indexToJsonl, visitsToJsonl
 } from "./collect.js";
 
 export const DEFAULTS = {
@@ -35,7 +38,7 @@ export async function buildFiles(s = null) {
   const cfg = s || await getSettings();
   const today = dateKey();
   const files = [];
-  const info = { bookmarks: 0, visits: 0, indexAdded: 0, indexTotal: 0, days: [] };
+  const info = { bookmarks: 0, visits: 0, indexAdded: 0, indexTotal: 0, visitsTotal: 0, days: [] };
 
   if (cfg.bookmarks) {
     const { json, html, stats } = await collectBookmarks();
@@ -46,14 +49,16 @@ export async function buildFiles(s = null) {
 
   if (cfg.history || cfg.index) {
     const indexRows = [];
+    const visitRows = [];
 
     for (const dayStart of await pendingDays()) {
       const from = dayStart.getTime();
       const to = Math.min(from + 86400000, Date.now());
       if (to <= from) continue;
 
-      const { visits, index } = await collectHistory(from, to);
+      const { visits, index, allVisits } = await collectHistory(from, to);
       indexRows.push(...index);
+      visitRows.push(...allVisits);
       info.visits += visits.length;
       info.days.push(dateKey(dayStart));
 
@@ -68,8 +73,21 @@ export async function buildFiles(s = null) {
 
     if (cfg.index) {
       if (indexRows.length) info.indexAdded = (await mergePages(indexRows)).added;
+
+      // Only the years that received rows get rewritten - normally just this one.
+      const years = visitRows.length ? await mergeVisits(visitRows) : new Set();
+      for (const year of years) {
+        files.push({
+          folder: FOLDERS.index,
+          name: `visits-${year}.jsonl`,
+          content: visitsToJsonl(await visitsInYear(year)),
+          keep: true
+        });
+      }
+
       const all = await allPages();
       info.indexTotal = all.length;
+      info.visitsTotal = await countVisits();
       files.push({ folder: FOLDERS.index, name: "page-index.csv", content: indexToCsv(all) });
       files.push({ folder: FOLDERS.index, name: "page-index.jsonl", content: indexToJsonl(all) });
     }
@@ -217,15 +235,19 @@ export async function badge(text) {
 
 /* ---------------- Rebuilding the index ---------------- */
 
-// Reads page-index.jsonl from the backup folder back into the database, so the
-// index survives a reinstall of the extension or a wiped Chrome profile.
+async function readTextFile(dir, name) {
+  const fh = await dir.getFileHandle(name, { create: false });
+  return (await fh.getFile()).text();
+}
+
+// Reads the index back out of the backup folder, so it survives a reinstall of
+// the extension or a wiped Chrome profile. page-index.jsonl carries the summary,
+// visits-<year>.jsonl the individual timestamps.
 export async function importIndex(dir) {
   const idx = await dir.getDirectoryHandle(FOLDERS.index, { create: false });
-  const fh = await idx.getFileHandle("page-index.jsonl", { create: false });
-  const text = await (await fh.getFile()).text();
 
   const rows = [];
-  for (const line of text.split("\n")) {
+  for (const line of (await readTextFile(idx, "page-index.jsonl")).split("\n")) {
     if (!line.trim()) continue;
     try {
       const o = JSON.parse(line);
@@ -241,7 +263,33 @@ export async function importIndex(dir) {
       });
     } catch { /* skip a broken line rather than abort the import */ }
   }
-  if (!rows.length) return { read: 0, added: 0, total: await countPages() };
-  const stats = await mergePages(rows);
-  return { read: rows.length, added: stats.added, total: await countPages() };
+  const pageStats = rows.length ? await mergePages(rows) : { added: 0 };
+
+  // Pick up every visits-<year>.jsonl the folder happens to contain.
+  const yearFiles = [];
+  for await (const [name, h] of idx.entries()) {
+    if (h.kind === "file" && /^visits-\d{4}\.jsonl$/.test(name)) yearFiles.push(name);
+  }
+  let visitRows = 0;
+  for (const name of yearFiles.sort()) {
+    const batch = [];
+    for (const line of (await readTextFile(idx, name)).split("\n")) {
+      if (!line.trim()) continue;
+      try {
+        const o = JSON.parse(line);
+        const t = Date.parse(o.at);
+        if (o.url && t) batch.push({ url: o.url, t });
+      } catch { /* skip a broken line */ }
+    }
+    if (batch.length) await mergeVisits(batch);
+    visitRows += batch.length;
+  }
+
+  return {
+    read: rows.length,
+    added: pageStats.added,
+    total: await countPages(),
+    visitsRead: visitRows,
+    visitsTotal: await countVisits()
+  };
 }

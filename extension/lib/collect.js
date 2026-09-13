@@ -82,6 +82,7 @@ export async function collectHistory(startTime, endTime) {
 
   const visits = [];
   const index = [];
+  const allVisits = [];
 
   for (const it of items) {
     // search() only reports the LAST visit per URL, so ask for the individual ones.
@@ -89,6 +90,10 @@ export async function collectHistory(startTime, endTime) {
     try { raw = await chrome.history.getVisits({ url: it.url }); } catch { /* URL gone meanwhile */ }
 
     for (const v of raw) {
+      if (!v.visitTime) continue;
+      // Keep every timestamp Chrome hands us, not just the ones inside the window.
+      // On the first run that backfills months of visit history in one go.
+      allVisits.push({ url: it.url, t: v.visitTime });
       if (v.visitTime >= startTime && v.visitTime < endTime) {
         visits.push({ t: v.visitTime, title: it.title || "", url: it.url });
       }
@@ -112,7 +117,7 @@ export async function collectHistory(startTime, endTime) {
   }
 
   visits.sort((a, b) => a.t - b.t);
-  return { visits, index };
+  return { visits, index, allVisits };
 }
 
 // One plain-text log per day.
@@ -147,6 +152,16 @@ export function indexToCsv(rows) {
   );
   // Leading BOM so Excel picks up UTF-8 and shows non-ASCII characters correctly.
   return "﻿" + [head, ...body].join("\r\n") + "\r\n";
+}
+
+// One line per visit, split into per-year files so a daily run only rewrites
+// the current year instead of the whole archive.
+export function visitsToJsonl(rows) {
+  return rows
+    .slice()
+    .sort((a, b) => a.t - b.t)
+    .map(r => JSON.stringify({ url: r.url, at: new Date(r.t).toISOString() }))
+    .join("\n") + "\n";
 }
 
 // Machine-readable twin of the CSV - this is what importIndex() reads back.
