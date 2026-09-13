@@ -49,7 +49,7 @@ are ignored:
 
 | Query | matches, among others |
 |---|---|
-| `github.com/anthropics` | `https://github.com/anthropics/claude-code` |
+| `github.com/torvalds` | `https://github.com/torvalds/linux` |
 | `/pull/` | every pull request page you ever had open |
 | `jira` | hits in the host, in the path, or in the title |
 
