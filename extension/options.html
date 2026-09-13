@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<title>Chrome Backup – Einstellungen</title>
+<style>
+  :root {
+    --bg: #f6f7f9; --karte: #ffffff; --rand: #e3e6ea; --text: #1b1f24;
+    --gedimmt: #626c76; --akzent: #2563eb; --ok: #15803d; --warn: #b45309; --fehler: #b91c1c;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #16191d; --karte: #1e2227; --rand: #2f353c; --text: #e6e9ec;
+      --gedimmt: #98a2ad; --akzent: #5b93ff; --ok: #4ade80; --warn: #fbbf24; --fehler: #f87171;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; padding: 32px 24px 64px; background: var(--bg); color: var(--text);
+    font: 14px/1.55 system-ui, "Segoe UI", sans-serif;
+  }
+  .huelle { max-width: 780px; margin: 0 auto; }
+  h1 { font-size: 20px; margin: 0 0 4px; }
+  .unter { color: var(--gedimmt); margin: 0 0 28px; }
+  section {
+    background: var(--karte); border: 1px solid var(--rand); border-radius: 10px;
+    padding: 18px 20px; margin-bottom: 16px;
+  }
+  h2 { font-size: 14px; margin: 0 0 14px; letter-spacing: .02em; text-transform: uppercase; color: var(--gedimmt); }
+  label { display: block; }
+  .zeile { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+  .zeile + .zeile { margin-top: 12px; }
+  .wachsen { flex: 1 1 auto; min-width: 0; }
+  button {
+    font: inherit; padding: 7px 14px; border-radius: 7px; cursor: pointer;
+    border: 1px solid var(--rand); background: var(--karte); color: var(--text);
+  }
+  button:hover { border-color: var(--akzent); }
+  button.primaer { background: var(--akzent); border-color: var(--akzent); color: #fff; }
+  button.primaer:hover { filter: brightness(1.08); }
+  button:disabled { opacity: .5; cursor: default; }
+  input[type=time], input[type=number], input[type=search] {
+    font: inherit; padding: 7px 10px; border-radius: 7px;
+    border: 1px solid var(--rand); background: var(--bg); color: var(--text);
+  }
+  input[type=search] { width: 100%; }
+  input[type=checkbox] { width: 16px; height: 16px; accent-color: var(--akzent); }
+  .schalter { display: flex; align-items: flex-start; gap: 10px; padding: 9px 0; }
+  .schalter + .schalter { border-top: 1px solid var(--rand); }
+  .schalter .txt { flex: 1; }
+  .schalter .hinweis { color: var(--gedimmt); font-size: 12.5px; }
+  code { background: var(--bg); border: 1px solid var(--rand); border-radius: 4px; padding: 1px 5px; font-size: 12.5px; }
+  .plakette { display: inline-block; padding: 2px 9px; border-radius: 99px; font-size: 12px; font-weight: 600; }
+  .p-ok { background: color-mix(in srgb, var(--ok) 16%, transparent); color: var(--ok); }
+  .p-warn { background: color-mix(in srgb, var(--warn) 16%, transparent); color: var(--warn); }
+  .p-fehler { background: color-mix(in srgb, var(--fehler) 16%, transparent); color: var(--fehler); }
+  .gedimmt { color: var(--gedimmt); }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  th { text-align: left; font-weight: 600; color: var(--gedimmt); padding: 6px 8px; border-bottom: 1px solid var(--rand); white-space: nowrap; }
+  td { padding: 7px 8px; border-bottom: 1px solid var(--rand); vertical-align: top; }
+  tr:last-child td { border-bottom: none; }
+  td.wann { white-space: nowrap; font-variant-numeric: tabular-nums; }
+  td.url { word-break: break-all; }
+  td.url a { color: var(--akzent); text-decoration: none; }
+  td.url a:hover { text-decoration: underline; }
+  .titel { display: block; color: var(--gedimmt); font-size: 12.5px; }
+  .num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .scroll { max-height: 420px; overflow-y: auto; margin: 0 -8px; }
+  .meldung { margin-top: 12px; font-size: 13px; }
+  .m-ok { color: var(--ok); } .m-fehler { color: var(--fehler); }
+  .banner {
+    background: color-mix(in srgb, var(--warn) 12%, var(--karte));
+    border: 1px solid color-mix(in srgb, var(--warn) 40%, var(--rand));
+  }
+</style>
+</head>
+<body>
+<div class="huelle">
+  <h1>Chrome Backup</h1>
+  <p class="unter">Lesezeichen und Verlauf, einmal am Tag in einen Ordner deiner Wahl.</p>
+
+  <section id="bannerFreigabe" class="banner" hidden>
+    <div class="zeile">
+      <div class="wachsen">
+        <strong>Ordnerfreigabe bestätigen</strong>
+        <div class="gedimmt" id="bannerText">Chrome hat die Freigabe nach dem Neustart vergessen.</div>
+      </div>
+      <button class="primaer" id="btnFreigabe">Freigeben und nachholen</button>
+    </div>
+  </section>
+
+  <section>
+    <h2>Zielordner</h2>
+    <div class="zeile">
+      <div class="wachsen">
+        <div id="ordnerName"><span class="gedimmt">Noch kein Ordner ausgewählt</span></div>
+        <div class="gedimmt" style="font-size:12.5px;margin-top:4px">
+          Darin entstehen <code>Lesezeichen\</code>, <code>Verlauf\</code> und <code>Index\</code>.
+        </div>
+      </div>
+      <span id="freigabePlakette"></span>
+      <button id="btnOrdner">Ordner auswählen…</button>
+    </div>
+  </section>
+
+  <section>
+    <h2>Was gesichert wird</h2>
+    <div class="schalter">
+      <input type="checkbox" id="cbLesezeichen">
+      <div class="txt">
+        <label for="cbLesezeichen"><strong>Lesezeichen</strong></label>
+        <div class="hinweis">Je eine <code>.json</code> (vollständig, gut vergleichbar) und <code>.html</code> (in Chrome wieder importierbar) pro Tag.</div>
+      </div>
+    </div>
+    <div class="schalter">
+      <input type="checkbox" id="cbVerlauf">
+      <div class="txt">
+        <label for="cbVerlauf"><strong>Verlauf als Tagesprotokoll</strong></label>
+        <div class="hinweis">Eine Textdatei pro Tag mit Uhrzeit, Titel und URL jedes Aufrufs.</div>
+      </div>
+    </div>
+    <div class="schalter">
+      <input type="checkbox" id="cbIndex">
+      <div class="txt">
+        <label for="cbIndex"><strong>Seiten-Index</strong> <span class="gedimmt">– beantwortet „wann war ich das erste Mal auf …?"</span></label>
+        <div class="hinweis">Eine Zeile je URL mit Erstbesuch, letztem Besuch und Anzahl. Wächst dauerhaft weiter, auch wenn Chrome den Verlauf nach 90 Tagen wegwirft.</div>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2>Zeitplan</h2>
+    <div class="zeile">
+      <label for="zeit">Täglich um</label>
+      <input type="time" id="zeit">
+      <span class="gedimmt" id="naechsterLauf"></span>
+    </div>
+    <div class="zeile">
+      <label for="aufbewahrung">Tagesdateien aufbewahren</label>
+      <input type="number" id="aufbewahrung" min="0" max="9999" step="1" style="width:90px">
+      <span class="gedimmt">Tage – <code>0</code> heißt: nie löschen. Der Index ist davon nie betroffen.</span>
+    </div>
+    <div class="zeile" style="margin-top:16px">
+      <button class="primaer" id="btnSichern">Jetzt sichern</button>
+      <span id="sichernMeldung" class="meldung"></span>
+    </div>
+  </section>
+
+  <section>
+    <h2>Im Verlauf suchen</h2>
+    <div class="zeile">
+      <input type="search" id="suche" placeholder="z. B. github.com/anthropics  ·  sucht über die ganze URL samt Pfad" autocomplete="off">
+    </div>
+    <div class="zeile gedimmt" id="sucheInfo" style="font-size:12.5px"></div>
+    <div class="scroll"><table id="tabelle" hidden>
+      <thead><tr>
+        <th>Erstbesuch</th><th></th><th class="num">Aufrufe</th><th>Seite</th>
+      </tr></thead>
+      <tbody id="treffer"></tbody>
+    </table></div>
+  </section>
+
+  <section>
+    <h2>Wartung</h2>
+    <div class="zeile">
+      <div class="wachsen">
+        <strong>Index aus dem Backup-Ordner einlesen</strong>
+        <div class="gedimmt" style="font-size:12.5px">
+          Nach einer Neuinstallation von Chrome oder der Extension: liest <code>Index\seiten-index.jsonl</code> zurück.
+        </div>
+      </div>
+      <button id="btnImport">Einlesen</button>
+    </div>
+    <div id="importMeldung" class="meldung"></div>
+    <div class="zeile" style="margin-top:16px;border-top:1px solid var(--rand);padding-top:16px">
+      <div class="wachsen gedimmt" id="statusZeile" style="font-size:12.5px"></div>
+    </div>
+  </section>
+</div>
+<script type="module" src="options.js"></script>
+</body>
+</html>

@@ -1,0 +1,16 @@
+{
+  "manifest_version": 3,
+  "name": "Chrome Backup – Lesezeichen & Verlauf",
+  "version": "1.0.0",
+  "description": "Sichert Lesezeichen und Browserverlauf einmal taeglich in einen frei waehlbaren Ordner.",
+  "permissions": ["bookmarks", "history", "storage", "alarms", "unlimitedStorage"],
+  "background": {
+    "service_worker": "sw.js",
+    "type": "module"
+  },
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "Chrome Backup"
+  },
+  "options_page": "options.html"
+}
