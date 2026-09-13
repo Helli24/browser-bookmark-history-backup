@@ -14,7 +14,8 @@ export const DEFAULTS = {
   history: true,
   index: true,
   retentionDays: 365,   // 0 = keep forever; only applies to the per-day files
-  folderName: ""
+  folderName: "",
+  folderNote: ""    // the full path, typed by hand: Chrome never tells us
 };
 
 export const FOLDERS = { bookmarks: "Bookmarks", history: "History", index: "Index" };
@@ -80,8 +81,7 @@ export async function buildFiles(s = null) {
         files.push({
           folder: FOLDERS.index,
           name: `visits-${year}.jsonl`,
-          content: visitsToJsonl(await visitsInYear(year)),
-          keep: true
+          content: visitsToJsonl(await visitsInYear(year))
         });
       }
 

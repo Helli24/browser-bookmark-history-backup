@@ -9,7 +9,8 @@ import {
 const $ = id => document.getElementById(id);
 const el = {
   permBanner: $("permBanner"), permBannerText: $("permBannerText"), btnRegrant: $("btnRegrant"),
-  folderName: $("folderName"), permBadge: $("permBadge"), btnFolder: $("btnFolder"),
+  folderName: $("folderName"), folderNote: $("folderNote"),
+  permBadge: $("permBadge"), btnFolder: $("btnFolder"),
   cbBookmarks: $("cbBookmarks"), cbHistory: $("cbHistory"), cbIndex: $("cbIndex"),
   time: $("time"), retention: $("retention"), nextRun: $("nextRun"),
   btnBackup: $("btnBackup"), backupMsg: $("backupMsg"),
@@ -34,6 +35,8 @@ async function render() {
   el.cbIndex.checked = cfg.index;
   el.time.value = cfg.time || DEFAULTS.time;
   el.retention.value = cfg.retentionDays ?? DEFAULTS.retentionDays;
+  // Only overwrite while the field is idle, so typing is never interrupted.
+  if (document.activeElement !== el.folderNote) el.folderNote.value = cfg.folderNote || "";
 
   const { dir, state } = await permissionState();
   el.folderName.textContent = "";
@@ -79,7 +82,8 @@ async function render() {
 el.btnFolder.addEventListener("click", async () => {
   try {
     const dir = await pickFolder();
-    await setSettings({ folderName: dir.name });
+    // Drop the old note - it would now point at the wrong folder.
+    await setSettings({ folderName: dir.name, folderNote: "" });
     await render();
     // Write straight away so the folders show up and the choice is visibly confirmed.
     setMsg(el.backupMsg, "Folder set, running the first backup…");
@@ -114,6 +118,7 @@ el.time.addEventListener("change", () => el.time.value && save({ time: el.time.v
 el.retention.addEventListener("change", () =>
   save({ retentionDays: Math.max(0, parseInt(el.retention.value, 10) || 0) })
 );
+el.folderNote.addEventListener("change", () => save({ folderNote: el.folderNote.value.trim() }));
 
 /* ---------------- Back up now ---------------- */
 

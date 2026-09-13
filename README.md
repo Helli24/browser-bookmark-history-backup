@@ -20,8 +20,13 @@ server.
 3. **Load unpacked** → select the `extension/` folder
 4. Click the icon → **Settings** → **Choose folder…**
 
-The folder can be anywhere, including a second partition, e.g. `D:\Chrome Backup`.
+The folder can be anywhere, including a second partition, e.g. `F:\Chrome_Backup`.
 Chrome will ask for permission once.
+
+Only the folder's name is shown afterwards, never its full path — the File System
+Access API deliberately withholds that from extensions, and there is no way around
+it. The line underneath is a free-text note; put the path there yourself if you
+want to see at a glance which folder is configured.
 
 ## What ends up in the folder
 

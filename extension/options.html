@@ -55,6 +55,15 @@
   .b-warn { background: color-mix(in srgb, var(--warn) 16%, transparent); color: var(--warn); }
   .b-err { background: color-mix(in srgb, var(--err) 16%, transparent); color: var(--err); }
   .muted { color: var(--muted); }
+  .note-input {
+    font: inherit; font-family: ui-monospace, Consolas, monospace; font-size: 12.5px;
+    width: 100%; max-width: 420px; margin-top: 5px; padding: 4px 8px;
+    border: 1px solid transparent; border-radius: 6px;
+    background: transparent; color: var(--muted);
+  }
+  .note-input:hover { border-color: var(--border); }
+  .note-input:focus { border-color: var(--accent); background: var(--bg); color: var(--text); outline: none; }
+  .note-input::placeholder { font-family: system-ui, "Segoe UI", sans-serif; }
   table { width: 100%; border-collapse: collapse; font-size: 13px; }
   th { text-align: left; font-weight: 600; color: var(--muted); padding: 6px 8px; border-bottom: 1px solid var(--border); white-space: nowrap; }
   td { padding: 7px 8px; border-bottom: 1px solid var(--border); vertical-align: top; }
@@ -109,7 +118,9 @@
     <div class="row">
       <div class="grow">
         <div id="folderName"><span class="muted">No folder chosen yet</span></div>
-        <div class="muted" style="font-size:12.5px;margin-top:4px">
+        <input type="text" id="folderNote" class="note-input" autocomplete="off"
+               placeholder="Note the full path here — Chrome does not reveal it to extensions">
+        <div class="muted" style="font-size:12.5px;margin-top:6px">
           It will contain <code>Bookmarks\</code>, <code>History\</code> and <code>Index\</code>.
         </div>
       </div>
