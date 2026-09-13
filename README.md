@@ -134,14 +134,26 @@ the same trick applies: split it by first-visit year.
 
 ## Self-test
 
-`extension/selftest.html` imports every module against a stubbed Chrome API and
-asserts the parts that are easy to break silently — HTML escaping in the Netscape
-export, the CSV/JSONL field names the importer depends on, search-key
-normalisation, and that a first visit is backdated beyond the requested window.
+`test/selftest.html` imports every module against a stubbed Chrome API and asserts
+the parts that are easy to break silently — HTML escaping in the Netscape export,
+the CSV/JSONL field names the importer depends on, search-key normalisation, that
+a first visit is backdated beyond the requested window, and that backing up twice
+in a day does not duplicate visit rows.
 
 ```bash
-cd extension && python -m http.server 8731
+python -m http.server 8731
 ```
 
-Then open `http://127.0.0.1:8731/selftest.html`. It does not need Chrome's
-extension APIs, so it runs in any browser.
+Then open `http://127.0.0.1:8731/test/selftest.html`. It needs no extension APIs,
+so it runs in any browser. `extension/` contains only what actually ships.
+
+## Versioning
+
+Calendar versions, `YYYY.M.D` — the version Chrome shows on the extension card
+tells you at a glance how old your loaded copy is, which a semantic version never
+would for a tool with no API to keep stable.
+
+Two caveats from Chrome's manifest rules: each component must be an integer
+between 0 and 65535, and leading zeros are rejected. So `2026.9.13`, never
+`2026.09.13`. For a second release on the same day, append a fourth component:
+`2026.9.13.1`.

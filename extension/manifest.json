@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Chrome Backup - Bookmarks & History",
-  "version": "1.0.0",
+  "version": "2026.9.13",
   "description": "Backs up bookmarks and browsing history once a day into a folder of your choice, and keeps a permanent first-visit index.",
   "permissions": ["bookmarks", "history", "storage", "alarms", "unlimitedStorage"],
   "background": {

@@ -50,8 +50,9 @@ const check = (name, got, want) => {
   log(`${ok ? "PASS" : "FAIL"}  ${name}${ok ? "" : `  got=${got}  want=${want}`}`);
 };
 
-const files = ["./lib/db.js", "./lib/collect.js", "./lib/run.js", "./lib/ui.js",
-               "./options.js", "./popup.js", "./sw.js"];
+const base = "../extension/";
+const files = ["lib/db.js", "lib/collect.js", "lib/run.js", "lib/ui.js",
+               "options.js", "popup.js", "sw.js"].map(f => base + f);
 const mods = {};
 for (const f of files) {
   try { mods[f] = await import(f); log(`PASS  parse ${f}`); }
@@ -62,7 +63,7 @@ for (const f of files) {
 }
 
 log("");
-const C = mods["./lib/collect.js"], D = mods["./lib/db.js"], U = mods["./lib/ui.js"];
+const C = mods[base + "lib/collect.js"], D = mods[base + "lib/db.js"], U = mods[base + "lib/ui.js"];
 
 const bm = await C.collectBookmarks();
 check("bookmarks: links", bm.stats.links, 2);
