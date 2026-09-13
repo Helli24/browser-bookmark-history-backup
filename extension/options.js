@@ -2,175 +2,182 @@
 import { getSettings, setSettings, importIndex, DEFAULTS } from "./lib/run.js";
 import { searchPages, countPages } from "./lib/db.js";
 import {
-  freigabeZustand, ordnerWaehlen, freigabeErneuern, sichernJetzt,
-  zeitpunkt, datumKurz, jahreSeit
+  permissionState, pickFolder, regrantPermission, backupNow,
+  formatWhen, formatDate, timeAgo
 } from "./lib/ui.js";
 
 const $ = id => document.getElementById(id);
 const el = {
-  bannerFreigabe: $("bannerFreigabe"), bannerText: $("bannerText"), btnFreigabe: $("btnFreigabe"),
-  ordnerName: $("ordnerName"), freigabePlakette: $("freigabePlakette"), btnOrdner: $("btnOrdner"),
-  cbLesezeichen: $("cbLesezeichen"), cbVerlauf: $("cbVerlauf"), cbIndex: $("cbIndex"),
-  zeit: $("zeit"), aufbewahrung: $("aufbewahrung"), naechsterLauf: $("naechsterLauf"),
-  btnSichern: $("btnSichern"), sichernMeldung: $("sichernMeldung"),
-  suche: $("suche"), sucheInfo: $("sucheInfo"), tabelle: $("tabelle"), treffer: $("treffer"),
-  btnImport: $("btnImport"), importMeldung: $("importMeldung"), statusZeile: $("statusZeile")
+  permBanner: $("permBanner"), permBannerText: $("permBannerText"), btnRegrant: $("btnRegrant"),
+  folderName: $("folderName"), permBadge: $("permBadge"), btnFolder: $("btnFolder"),
+  cbBookmarks: $("cbBookmarks"), cbHistory: $("cbHistory"), cbIndex: $("cbIndex"),
+  time: $("time"), retention: $("retention"), nextRun: $("nextRun"),
+  btnBackup: $("btnBackup"), backupMsg: $("backupMsg"),
+  search: $("search"), searchInfo: $("searchInfo"), table: $("table"), hits: $("hits"),
+  btnImport: $("btnImport"), importMsg: $("importMsg"), statusLine: $("statusLine")
 };
 
-function meldung(node, text, art = "") {
+const n = x => (x || 0).toLocaleString("en-US");
+
+function setMsg(node, text, kind = "") {
   node.textContent = text;
-  node.className = "meldung" + (art ? ` m-${art}` : "");
+  node.className = "msg" + (kind ? ` m-${kind}` : "");
 }
 
 /* ---------------- Rendering ---------------- */
 
-async function zeichnen() {
+async function render() {
   const cfg = await getSettings();
-  el.cbLesezeichen.checked = cfg.lesezeichen;
-  el.cbVerlauf.checked = cfg.verlauf;
+  el.cbBookmarks.checked = cfg.bookmarks;
+  el.cbHistory.checked = cfg.history;
   el.cbIndex.checked = cfg.index;
-  el.zeit.value = cfg.zeit || DEFAULTS.zeit;
-  el.aufbewahrung.value = cfg.aufbewahrungTage ?? DEFAULTS.aufbewahrungTage;
+  el.time.value = cfg.time || DEFAULTS.time;
+  el.retention.value = cfg.retentionDays ?? DEFAULTS.retentionDays;
 
-  const { dir, zustand } = await freigabeZustand();
-  el.ordnerName.innerHTML = dir
-    ? `<strong>${dir.name}</strong>`
-    : `<span class="gedimmt">Noch kein Ordner ausgewählt</span>`;
-
-  const plakette = { granted: ["p-ok", "freigegeben"], prompt: ["p-warn", "Freigabe nötig"],
-                     denied: ["p-fehler", "abgelehnt"], keiner: ["", ""] }[zustand] || ["", ""];
-  el.freigabePlakette.className = plakette[0] ? `plakette ${plakette[0]}` : "";
-  el.freigabePlakette.textContent = plakette[1];
-
-  const { warteschlange = [], letzterLauf } = await chrome.storage.local.get(
-    ["warteschlange", "letzterLauf"]
-  );
-  const brauchtKlick = dir && zustand !== "granted";
-  el.bannerFreigabe.hidden = !brauchtKlick;
-  if (brauchtKlick) {
-    el.bannerText.textContent = warteschlange.length
-      ? `${warteschlange.length} Sicherung(en) warten darauf, geschrieben zu werden.`
-      : "Chrome hat die Freigabe nach dem Neustart vergessen.";
+  const { dir, state } = await permissionState();
+  el.folderName.textContent = "";
+  if (dir) {
+    const strong = document.createElement("strong");
+    strong.textContent = dir.name;
+    el.folderName.appendChild(strong);
+  } else {
+    const span = document.createElement("span");
+    span.className = "muted";
+    span.textContent = "No folder chosen yet";
+    el.folderName.appendChild(span);
   }
 
-  const alarm = await chrome.alarms.get("taeglich");
-  el.naechsterLauf.textContent = alarm ? `nächster Lauf: ${zeitpunkt(alarm.scheduledTime)}` : "";
+  const badge = { granted: ["b-ok", "granted"], prompt: ["b-warn", "needs permission"],
+                  denied: ["b-err", "denied"], none: ["", ""] }[state] || ["", ""];
+  el.permBadge.className = badge[0] ? `badge ${badge[0]}` : "";
+  el.permBadge.textContent = badge[1];
 
-  const anzahl = await countPages();
-  const teile = [`${anzahl.toLocaleString("de-DE")} Seiten im Index`];
-  if (letzterLauf) {
-    teile.push(letzterLauf.ok
-      ? `letzte Sicherung ${zeitpunkt(letzterLauf.zeit)}, ${letzterLauf.geschrieben} Dateien`
-      : `letzter Versuch ${zeitpunkt(letzterLauf.zeit)} fehlgeschlagen: ${letzterLauf.fehler}`);
+  const { queue = [], lastRun } = await chrome.storage.local.get(["queue", "lastRun"]);
+  const needsClick = dir && state !== "granted";
+  el.permBanner.hidden = !needsClick;
+  if (needsClick) {
+    el.permBannerText.textContent = queue.length
+      ? `${queue.length} backup(s) are waiting to be written.`
+      : "Chrome forgot the permission after the restart.";
   }
-  el.statusZeile.textContent = teile.join(" · ");
+
+  const alarm = await chrome.alarms.get("daily");
+  el.nextRun.textContent = alarm ? `next run: ${formatWhen(alarm.scheduledTime)}` : "";
+
+  const parts = [`${n(await countPages())} pages indexed`];
+  if (lastRun) {
+    parts.push(lastRun.ok
+      ? `last backup ${formatWhen(lastRun.at)}, ${lastRun.written} files`
+      : `last attempt ${formatWhen(lastRun.at)} failed: ${lastRun.error}`);
+  }
+  el.statusLine.textContent = parts.join(" · ");
 }
 
 /* ---------------- Target folder ---------------- */
 
-el.btnOrdner.addEventListener("click", async () => {
+el.btnFolder.addEventListener("click", async () => {
   try {
-    const dir = await ordnerWaehlen();
-    await setSettings({ ordnerName: dir.name });
-    await zeichnen();
+    const dir = await pickFolder();
+    await setSettings({ folderName: dir.name });
+    await render();
     // Write straight away so the folders show up and the choice is visibly confirmed.
-    meldung(el.sichernMeldung, "Ordner gesetzt, erste Sicherung läuft…");
-    await sichern();
+    setMsg(el.backupMsg, "Folder set, running the first backup…");
+    await doBackup();
   } catch (e) {
-    if (e?.name !== "AbortError") meldung(el.sichernMeldung, `Fehler: ${e.message}`, "fehler");
+    if (e?.name !== "AbortError") setMsg(el.backupMsg, `Error: ${e.message}`, "err");
   }
 });
 
-el.btnFreigabe.addEventListener("click", async () => {
+el.btnRegrant.addEventListener("click", async () => {
   try {
-    await freigabeErneuern();
-    await sichern();
-    await zeichnen();
+    await regrantPermission();
+    await doBackup();
   } catch (e) {
-    meldung(el.sichernMeldung, `Fehler: ${e.message}`, "fehler");
+    setMsg(el.backupMsg, `Error: ${e.message}`, "err");
+    await render();
   }
 });
 
 /* ---------------- Settings ---------------- */
 
-async function speichern(patch) {
+async function save(patch) {
   await setSettings(patch);
   await chrome.runtime.sendMessage({ cmd: "reschedule" }).catch(() => {});
-  await zeichnen();
+  await render();
 }
 
-el.cbLesezeichen.addEventListener("change", () => speichern({ lesezeichen: el.cbLesezeichen.checked }));
-el.cbVerlauf.addEventListener("change", () => speichern({ verlauf: el.cbVerlauf.checked }));
-el.cbIndex.addEventListener("change", () => speichern({ index: el.cbIndex.checked }));
-el.zeit.addEventListener("change", () => el.zeit.value && speichern({ zeit: el.zeit.value }));
-el.aufbewahrung.addEventListener("change", () =>
-  speichern({ aufbewahrungTage: Math.max(0, parseInt(el.aufbewahrung.value, 10) || 0) })
+el.cbBookmarks.addEventListener("change", () => save({ bookmarks: el.cbBookmarks.checked }));
+el.cbHistory.addEventListener("change", () => save({ history: el.cbHistory.checked }));
+el.cbIndex.addEventListener("change", () => save({ index: el.cbIndex.checked }));
+el.time.addEventListener("change", () => el.time.value && save({ time: el.time.value }));
+el.retention.addEventListener("change", () =>
+  save({ retentionDays: Math.max(0, parseInt(el.retention.value, 10) || 0) })
 );
 
-/* ---------------- Backup now ---------------- */
+/* ---------------- Back up now ---------------- */
 
-async function sichern() {
-  el.btnSichern.disabled = true;
-  meldung(el.sichernMeldung, "läuft…");
+async function doBackup() {
+  el.btnBackup.disabled = true;
+  setMsg(el.backupMsg, "running…");
   try {
-    const lauf = await sichernJetzt("manuell");
-    const t = [`${lauf.geschrieben} Dateien geschrieben`];
-    if (lauf.info.lesezeichen) t.push(`${lauf.info.lesezeichen} Lesezeichen`);
-    if (lauf.info.besuche) t.push(`${lauf.info.besuche} Aufrufe`);
-    if (lauf.info.indexNeu) t.push(`${lauf.info.indexNeu} neue Seiten im Index`);
-    if (lauf.geloescht) t.push(`${lauf.geloescht} alte Dateien entfernt`);
-    meldung(el.sichernMeldung, t.join(", "), "ok");
+    const run = await backupNow("manual");
+    const t = [`${run.written} files written`];
+    if (run.info.bookmarks) t.push(`${n(run.info.bookmarks)} bookmarks`);
+    if (run.info.visits) t.push(`${n(run.info.visits)} visits`);
+    if (run.info.indexAdded) t.push(`${n(run.info.indexAdded)} new pages indexed`);
+    if (run.deleted) t.push(`${run.deleted} old files removed`);
+    setMsg(el.backupMsg, t.join(", "), "ok");
   } catch (e) {
-    meldung(el.sichernMeldung, `Fehler: ${e.message}`, "fehler");
+    setMsg(el.backupMsg, `Error: ${e.message}`, "err");
   } finally {
-    el.btnSichern.disabled = false;
-    await zeichnen();
-    await suchen();
+    el.btnBackup.disabled = false;
+    await render();
+    await doSearch();
   }
 }
 
-el.btnSichern.addEventListener("click", sichern);
+el.btnBackup.addEventListener("click", doBackup);
 
 /* ---------------- Search ---------------- */
 
-let sucheTimer = null;
-el.suche.addEventListener("input", () => {
-  clearTimeout(sucheTimer);
-  sucheTimer = setTimeout(suchen, 180);
+let searchTimer = null;
+el.search.addEventListener("input", () => {
+  clearTimeout(searchTimer);
+  searchTimer = setTimeout(doSearch, 180);
 });
 
-async function suchen() {
-  const q = el.suche.value.trim();
+async function doSearch() {
+  const q = el.search.value.trim();
   if (!q) {
-    el.tabelle.hidden = true;
-    el.treffer.replaceChildren();
-    const n = await countPages();
-    el.sucheInfo.textContent = n
-      ? `${n.toLocaleString("de-DE")} Seiten durchsuchbar.`
-      : "Der Index ist noch leer – einmal sichern, dann steht er zur Verfügung.";
+    el.table.hidden = true;
+    el.hits.replaceChildren();
+    const count = await countPages();
+    el.searchInfo.textContent = count
+      ? `${n(count)} pages searchable.`
+      : "The index is still empty – run one backup and it will be there.";
     return;
   }
 
-  const { treffer, gesamt } = await searchPages(q, 300);
-  el.sucheInfo.textContent = gesamt
-    ? `${gesamt.toLocaleString("de-DE")} Treffer${gesamt > treffer.length ? `, die ${treffer.length} ältesten werden gezeigt` : ""}`
-    : "Keine Treffer.";
+  const { hits, total } = await searchPages(q, 300);
+  el.searchInfo.textContent = total
+    ? `${n(total)} matches${total > hits.length ? `, showing the ${hits.length} oldest` : ""}`
+    : "No matches.";
 
-  el.tabelle.hidden = treffer.length === 0;
-  el.treffer.replaceChildren(...treffer.map(r => {
+  el.table.hidden = hits.length === 0;
+  el.hits.replaceChildren(...hits.map(r => {
     const tr = document.createElement("tr");
 
-    const wann = document.createElement("td");
-    wann.className = "wann";
-    wann.textContent = datumKurz(r.first);
+    const when = document.createElement("td");
+    when.className = "when";
+    when.textContent = formatDate(r.first);
 
-    const seit = document.createElement("td");
-    seit.className = "wann gedimmt";
-    seit.textContent = jahreSeit(r.first);
+    const ago = document.createElement("td");
+    ago.className = "when muted";
+    ago.textContent = timeAgo(r.first);
 
-    const n = document.createElement("td");
-    n.className = "num";
-    n.textContent = (r.count || 0).toLocaleString("de-DE");
+    const count = document.createElement("td");
+    count.className = "num";
+    count.textContent = n(r.count);
 
     const url = document.createElement("td");
     url.className = "url";
@@ -182,12 +189,12 @@ async function suchen() {
     url.appendChild(a);
     if (r.title) {
       const t = document.createElement("span");
-      t.className = "titel";
+      t.className = "title";
       t.textContent = r.title;
       url.appendChild(t);
     }
 
-    tr.append(wann, seit, n, url);
+    tr.append(when, ago, count, url);
     return tr;
   }));
 }
@@ -196,29 +203,28 @@ async function suchen() {
 
 el.btnImport.addEventListener("click", async () => {
   el.btnImport.disabled = true;
-  meldung(el.importMeldung, "läuft…");
+  setMsg(el.importMsg, "running…");
   try {
-    let { dir, zustand } = await freigabeZustand();
-    if (!dir) throw new Error("Es ist noch kein Zielordner ausgewählt.");
-    if (zustand !== "granted") dir = await freigabeErneuern();
+    let { dir, state } = await permissionState();
+    if (!dir) throw new Error("No target folder has been chosen yet.");
+    if (state !== "granted") dir = await regrantPermission();
 
     const r = await importIndex(dir);
-    meldung(el.importMeldung,
-      `${r.gelesen.toLocaleString("de-DE")} Zeilen gelesen, ${r.neu.toLocaleString("de-DE")} davon neu – ` +
-      `der Index umfasst jetzt ${r.gesamt.toLocaleString("de-DE")} Seiten.`, "ok");
-    await suchen();
+    setMsg(el.importMsg,
+      `Read ${n(r.read)} rows, ${n(r.added)} of them new – the index now holds ${n(r.total)} pages.`,
+      "ok");
+    await doSearch();
   } catch (e) {
-    const text = e?.name === "NotFoundError"
-      ? "Im Ordner liegt noch keine Index\\seiten-index.jsonl."
-      : `Fehler: ${e.message}`;
-    meldung(el.importMeldung, text, "fehler");
+    setMsg(el.importMsg, e?.name === "NotFoundError"
+      ? "There is no Index\\page-index.jsonl in that folder yet."
+      : `Error: ${e.message}`, "err");
   } finally {
     el.btnImport.disabled = false;
-    await zeichnen();
+    await render();
   }
 });
 
 /* ---------------- Start ---------------- */
 
-await zeichnen();
-await suchen();
+await render();
+await doSearch();

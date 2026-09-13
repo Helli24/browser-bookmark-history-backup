@@ -1,17 +1,17 @@
 <!DOCTYPE html>
-<html lang="de">
+<html lang="en">
 <head>
 <meta charset="utf-8">
 <title>Chrome Backup</title>
 <style>
   :root {
-    --bg: #ffffff; --rand: #e3e6ea; --text: #1b1f24; --gedimmt: #626c76;
-    --akzent: #2563eb; --ok: #15803d; --warn: #b45309; --fehler: #b91c1c; --feld: #f6f7f9;
+    --bg: #ffffff; --border: #e3e6ea; --text: #1b1f24; --muted: #626c76;
+    --accent: #2563eb; --ok: #15803d; --warn: #b45309; --err: #b91c1c; --field: #f6f7f9;
   }
   @media (prefers-color-scheme: dark) {
     :root {
-      --bg: #1e2227; --rand: #2f353c; --text: #e6e9ec; --gedimmt: #98a2ad;
-      --akzent: #5b93ff; --ok: #4ade80; --warn: #fbbf24; --fehler: #f87171; --feld: #16191d;
+      --bg: #1e2227; --border: #2f353c; --text: #e6e9ec; --muted: #98a2ad;
+      --accent: #5b93ff; --ok: #4ade80; --warn: #fbbf24; --err: #f87171; --field: #16191d;
     }
   }
   * { box-sizing: border-box; }
@@ -19,57 +19,57 @@
     width: 360px; margin: 0; padding: 14px; background: var(--bg); color: var(--text);
     font: 13px/1.5 system-ui, "Segoe UI", sans-serif;
   }
-  .kopf { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 10px; }
-  .kopf strong { font-size: 14px; }
-  .kopf a { color: var(--gedimmt); text-decoration: none; font-size: 12px; }
-  .kopf a:hover { color: var(--akzent); }
-  .status { display: flex; gap: 8px; align-items: flex-start; padding: 9px 11px; border-radius: 8px; background: var(--feld); }
-  .punkt { width: 8px; height: 8px; border-radius: 50%; margin-top: 6px; flex: none; background: var(--gedimmt); }
-  .punkt.ok { background: var(--ok); } .punkt.warn { background: var(--warn); } .punkt.fehler { background: var(--fehler); }
+  .head { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 10px; }
+  .head strong { font-size: 14px; }
+  .head a { color: var(--muted); text-decoration: none; font-size: 12px; }
+  .head a:hover { color: var(--accent); }
+  .status { display: flex; gap: 8px; align-items: flex-start; padding: 9px 11px; border-radius: 8px; background: var(--field); }
+  .dot { width: 8px; height: 8px; border-radius: 50%; margin-top: 6px; flex: none; background: var(--muted); }
+  .dot.ok { background: var(--ok); } .dot.warn { background: var(--warn); } .dot.err { background: var(--err); }
   .status .txt { flex: 1; min-width: 0; }
-  .gedimmt { color: var(--gedimmt); font-size: 12px; }
-  .knoepfe { display: flex; gap: 8px; margin: 10px 0; }
+  .muted { color: var(--muted); font-size: 12px; }
+  .buttons { display: flex; gap: 8px; margin: 10px 0; }
   button {
     font: inherit; flex: 1; padding: 7px 10px; border-radius: 7px; cursor: pointer;
-    border: 1px solid var(--rand); background: var(--bg); color: var(--text);
+    border: 1px solid var(--border); background: var(--bg); color: var(--text);
   }
-  button.primaer { background: var(--akzent); border-color: var(--akzent); color: #fff; }
+  button.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
   button:disabled { opacity: .55; cursor: default; }
   input[type=search] {
     font: inherit; width: 100%; padding: 7px 10px; border-radius: 7px;
-    border: 1px solid var(--rand); background: var(--feld); color: var(--text);
+    border: 1px solid var(--border); background: var(--field); color: var(--text);
   }
-  .liste { margin-top: 8px; max-height: 260px; overflow-y: auto; }
-  .treffer { padding: 7px 2px; border-top: 1px solid var(--rand); }
-  .treffer .wann { color: var(--ok); font-weight: 600; font-variant-numeric: tabular-nums; }
-  .treffer .url { word-break: break-all; }
-  .treffer .url a { color: var(--text); text-decoration: none; }
-  .treffer .url a:hover { color: var(--akzent); text-decoration: underline; }
-  .meldung { margin-top: 8px; font-size: 12px; }
-  .m-ok { color: var(--ok); } .m-fehler { color: var(--fehler); }
+  .list { margin-top: 8px; max-height: 260px; overflow-y: auto; }
+  .hit { padding: 7px 2px; border-top: 1px solid var(--border); }
+  .hit .when { color: var(--ok); font-weight: 600; font-variant-numeric: tabular-nums; }
+  .hit .url { word-break: break-all; }
+  .hit .url a { color: var(--text); text-decoration: none; }
+  .hit .url a:hover { color: var(--accent); text-decoration: underline; }
+  .msg { margin-top: 8px; font-size: 12px; }
+  .m-ok { color: var(--ok); } .m-err { color: var(--err); }
 </style>
 </head>
 <body>
-  <div class="kopf">
+  <div class="head">
     <strong>Chrome Backup</strong>
-    <a href="#" id="linkOptionen">Einstellungen</a>
+    <a href="#" id="linkOptions">Settings</a>
   </div>
 
   <div class="status">
-    <span class="punkt" id="punkt"></span>
+    <span class="dot" id="dot"></span>
     <div class="txt">
       <div id="statusText">…</div>
-      <div class="gedimmt" id="statusUnter"></div>
+      <div class="muted" id="statusSub"></div>
     </div>
   </div>
 
-  <div class="knoepfe">
-    <button class="primaer" id="btnSichern">Jetzt sichern</button>
+  <div class="buttons">
+    <button class="primary" id="btnBackup">Back up now</button>
   </div>
-  <div id="meldung" class="meldung"></div>
+  <div id="msg" class="msg"></div>
 
-  <input type="search" id="suche" placeholder="Wann war ich zuerst auf …?" autocomplete="off">
-  <div class="liste" id="liste"></div>
+  <input type="search" id="search" placeholder="When was I first on …?" autocomplete="off">
+  <div class="list" id="list"></div>
 
 <script type="module" src="popup.js"></script>
 </body>

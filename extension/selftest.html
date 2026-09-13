@@ -1,0 +1,101 @@
+<!DOCTYPE html><meta charset="utf-8"><title>selftest</title>
+<pre id="out">running…</pre>
+<script>
+  // Minimal chrome API stub so the modules can be imported outside an extension.
+  const store = {};
+  window.chrome = {
+    storage: { local: {
+      get: k => Promise.resolve(typeof k === "string" ? { [k]: store[k] } :
+            Array.isArray(k) ? Object.fromEntries(k.map(x => [x, store[x]])) : { ...store }),
+      set: o => { Object.assign(store, o); return Promise.resolve(); }
+    }},
+    bookmarks: { getTree: () => Promise.resolve(FAKE_TREE) },
+    history: {
+      search: () => Promise.resolve(FAKE_HIST),
+      getVisits: ({ url }) => Promise.resolve(FAKE_VISITS[url] || [])
+    },
+    alarms: { create: () => {}, get: () => Promise.resolve(null), onAlarm: { addListener(){} } },
+    action: { setBadgeText: () => Promise.resolve(), setBadgeBackgroundColor: () => Promise.resolve() },
+    runtime: { onMessage: { addListener(){} }, onInstalled: { addListener(){} }, onStartup: { addListener(){} } }
+  };
+
+  const T = Date.UTC(2026, 8, 13, 10, 0, 0);
+  window.FAKE_TREE = [{ id: "0", children: [
+    { id: "1", title: "Bookmarks bar", dateAdded: T - 9e8, dateGroupModified: T, children: [
+      { id: "5", title: 'Anthropic & "Claude"', url: "https://www.anthropic.com/?a=1&b=<2>", dateAdded: T - 5e8 },
+      { id: "6", title: "Folder with umlauts äöü", dateAdded: T - 4e8, children: [
+        { id: "7", title: "GitHub", url: "https://github.com/anthropics/claude-code", dateAdded: T - 3e8 }
+      ]}
+    ]},
+    { id: "2", title: "Other bookmarks", dateAdded: T - 9e8, children: [] }
+  ]}];
+  window.FAKE_HIST = [
+    { url: "https://github.com/anthropics/claude-code", title: "claude-code", lastVisitTime: T, visitCount: 42 },
+    { url: "https://www.example.com/path?q=1", title: "Example", lastVisitTime: T - 3600e3, visitCount: 3 }
+  ];
+  window.FAKE_VISITS = {
+    "https://github.com/anthropics/claude-code": [
+      { visitTime: T - 200 * 864e5 }, { visitTime: T - 3600e3 }, { visitTime: T }
+    ],
+    "https://www.example.com/path?q=1": [{ visitTime: T - 3600e3 }]
+  };
+</script>
+<script type="module">
+const out = [];
+const log = s => { out.push(s); document.getElementById("out").textContent = out.join("\n"); };
+let fails = 0;
+const check = (name, got, want) => {
+  const ok = String(got) === String(want);
+  if (!ok) fails++;
+  log(`${ok ? "PASS" : "FAIL"}  ${name}${ok ? "" : `  got=${got}  want=${want}`}`);
+};
+
+const files = ["./lib/db.js", "./lib/collect.js", "./lib/run.js", "./lib/ui.js",
+               "./options.js", "./popup.js", "./sw.js"];
+const mods = {};
+for (const f of files) {
+  try { mods[f] = await import(f); log(`PASS  parse ${f}`); }
+  catch (e) {
+    if (e instanceof SyntaxError) { fails++; log(`FAIL  parse ${f}: SYNTAX ${e.message}`); }
+    else log(`PASS  parse ${f}  (runtime ${e.name}, expected without DOM)`);
+  }
+}
+
+log("");
+const C = mods["./lib/collect.js"], D = mods["./lib/db.js"], U = mods["./lib/ui.js"];
+
+const bm = await C.collectBookmarks();
+check("bookmarks: links", bm.stats.links, 2);
+check("bookmarks: folders", bm.stats.folders, 3);
+check("netscape: escapes &", bm.html.includes("?a=1&amp;b=&lt;2&gt;"), true);
+check("netscape: toolbar flag", bm.html.includes('PERSONAL_TOOLBAR_FOLDER="true"'), true);
+check("json: english keys", Object.keys(JSON.parse(bm.json)).join(","), "exportedAt,stats,tree");
+
+const from = Date.UTC(2026, 8, 13, 0, 0, 0), to = Date.UTC(2026, 8, 14, 0, 0, 0);
+const h = await C.collectHistory(from, to);
+check("history: visits in window", h.visits.length, 3);
+check("history: index rows", h.index.length, 2);
+check("history: first visit backdated 200d", new Date(h.index[0].first).toISOString(), "2026-02-25T10:00:00.000Z");
+
+const csv = C.indexToCsv(h.index);
+check("csv: english header", csv.split("\r\n")[0].replace(/^﻿/, ""), "first_visit;last_visit;visits;host;title;url");
+const jsonl = C.indexToJsonl(h.index);
+const first = JSON.parse(jsonl.split("\n")[0]);
+check("jsonl: english keys", Object.keys(first).join(","), "url,host,title,firstVisit,lastVisit,visits");
+
+check("searchKey: strips scheme+www", D.searchKey("https://www.GitHub.com/xyz/"), "github.com/xyz/");
+check("searchKey: keeps path+query", D.searchKey("http://example.com/p?q=1"), "example.com/p?q=1");
+check("timeAgo: 200 days", U.timeAgo(Date.now() - 200 * 864e5), "7 months ago");
+check("formatDate", U.formatDate(Date.UTC(2026, 0, 5, 12)), "2026-01-05");
+
+// The JSONL must round-trip through importIndex - same field names both ways.
+const back = jsonl.split("\n").filter(Boolean).map(l => JSON.parse(l));
+check("roundtrip: firstVisit parses", isNaN(Date.parse(back[0].firstVisit)), false);
+
+log("");
+log(fails ? `${fails} FAILURE(S)` : "ALL CHECKS PASSED");
+log("--- history-2026-09-13.txt ---");
+log(C.historyToText("2026-09-13", h.visits));
+log("--- page-index.csv ---");
+log(csv);
+</script>

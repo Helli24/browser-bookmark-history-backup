@@ -1,114 +1,114 @@
-// Popup: status at a glance, backup now, quick lookup in the index.
+// Popup: status at a glance, back up now, quick lookup in the index.
 import { searchPages, countPages } from "./lib/db.js";
-import { freigabeZustand, sichernJetzt, zeitpunkt, datumKurz, jahreSeit } from "./lib/ui.js";
+import { permissionState, backupNow, formatWhen, formatDate, timeAgo } from "./lib/ui.js";
 
 const $ = id => document.getElementById(id);
 const el = {
-  punkt: $("punkt"), statusText: $("statusText"), statusUnter: $("statusUnter"),
-  btnSichern: $("btnSichern"), meldung: $("meldung"),
-  suche: $("suche"), liste: $("liste"), linkOptionen: $("linkOptionen")
+  dot: $("dot"), statusText: $("statusText"), statusSub: $("statusSub"),
+  btnBackup: $("btnBackup"), msg: $("msg"),
+  search: $("search"), list: $("list"), linkOptions: $("linkOptions")
 };
+
+const n = x => (x || 0).toLocaleString("en-US");
 
 // A permission dialog would close the popup, so anything needing one is handed
 // over to the options page instead.
-let brauchtOptionen = false;
+let needsOptionsPage = false;
 
-async function zeichnen() {
-  const { dir, zustand } = await freigabeZustand();
-  const { letzterLauf, warteschlange = [] } = await chrome.storage.local.get(
-    ["letzterLauf", "warteschlange"]
-  );
-  const alarm = await chrome.alarms.get("taeglich");
-  const anzahl = await countPages();
+async function render() {
+  const { dir, state } = await permissionState();
+  const { lastRun, queue = [] } = await chrome.storage.local.get(["lastRun", "queue"]);
+  const alarm = await chrome.alarms.get("daily");
+  const indexed = await countPages();
 
-  brauchtOptionen = !dir || zustand !== "granted";
+  needsOptionsPage = !dir || state !== "granted";
 
   if (!dir) {
-    el.punkt.className = "punkt warn";
-    el.statusText.textContent = "Noch kein Zielordner ausgewählt";
-    el.statusUnter.textContent = "In den Einstellungen einen Ordner festlegen.";
-    el.btnSichern.textContent = "Ordner auswählen";
-  } else if (zustand !== "granted") {
-    el.punkt.className = "punkt warn";
-    el.statusText.textContent = "Ordnerfreigabe bestätigen";
-    el.statusUnter.textContent = warteschlange.length
-      ? `${warteschlange.length} Sicherung(en) warten – ein Klick genügt.`
-      : "Chrome hat die Freigabe seit dem Neustart vergessen.";
-    el.btnSichern.textContent = "Freigeben und sichern";
+    el.dot.className = "dot warn";
+    el.statusText.textContent = "No target folder chosen yet";
+    el.statusSub.textContent = "Pick a folder in the settings.";
+    el.btnBackup.textContent = "Choose folder";
+  } else if (state !== "granted") {
+    el.dot.className = "dot warn";
+    el.statusText.textContent = "Confirm folder access";
+    el.statusSub.textContent = queue.length
+      ? `${queue.length} backup(s) waiting – one click is enough.`
+      : "Chrome forgot the permission since the restart.";
+    el.btnBackup.textContent = "Grant and back up";
   } else {
-    const gut = letzterLauf?.ok;
-    el.punkt.className = `punkt ${gut ? "ok" : letzterLauf ? "fehler" : ""}`;
-    el.statusText.textContent = letzterLauf
-      ? (gut ? `Zuletzt gesichert ${zeitpunkt(letzterLauf.zeit)}` : `Letzter Lauf fehlgeschlagen`)
-      : "Noch nichts gesichert";
-    const teile = [];
-    if (letzterLauf && !gut) teile.push(letzterLauf.fehler);
-    if (alarm) teile.push(`nächster Lauf ${zeitpunkt(alarm.scheduledTime)}`);
-    if (anzahl) teile.push(`${anzahl.toLocaleString("de-DE")} Seiten im Index`);
-    el.statusUnter.textContent = teile.join(" · ");
-    el.btnSichern.textContent = "Jetzt sichern";
+    const good = lastRun?.ok;
+    el.dot.className = `dot ${good ? "ok" : lastRun ? "err" : ""}`;
+    el.statusText.textContent = lastRun
+      ? (good ? `Last backup ${formatWhen(lastRun.at)}` : "Last run failed")
+      : "Nothing backed up yet";
+    const parts = [];
+    if (lastRun && !good) parts.push(lastRun.error);
+    if (alarm) parts.push(`next run ${formatWhen(alarm.scheduledTime)}`);
+    if (indexed) parts.push(`${n(indexed)} pages indexed`);
+    el.statusSub.textContent = parts.join(" · ");
+    el.btnBackup.textContent = "Back up now";
   }
 }
 
-el.btnSichern.addEventListener("click", async () => {
-  if (brauchtOptionen) {
+el.btnBackup.addEventListener("click", async () => {
+  if (needsOptionsPage) {
     chrome.runtime.openOptionsPage();
     window.close();
     return;
   }
-  el.btnSichern.disabled = true;
-  el.meldung.textContent = "läuft…";
-  el.meldung.className = "meldung";
+  el.btnBackup.disabled = true;
+  el.msg.textContent = "running…";
+  el.msg.className = "msg";
   try {
-    const lauf = await sichernJetzt("popup");
-    el.meldung.textContent = `${lauf.geschrieben} Dateien geschrieben.`;
-    el.meldung.className = "meldung m-ok";
+    const run = await backupNow("popup");
+    el.msg.textContent = `${run.written} files written.`;
+    el.msg.className = "msg m-ok";
   } catch (e) {
-    el.meldung.textContent = `Fehler: ${e.message}`;
-    el.meldung.className = "meldung m-fehler";
+    el.msg.textContent = `Error: ${e.message}`;
+    el.msg.className = "msg m-err";
   } finally {
-    el.btnSichern.disabled = false;
-    await zeichnen();
+    el.btnBackup.disabled = false;
+    await render();
   }
 });
 
-el.linkOptionen.addEventListener("click", e => {
+el.linkOptions.addEventListener("click", e => {
   e.preventDefault();
   chrome.runtime.openOptionsPage();
   window.close();
 });
 
 let timer = null;
-el.suche.addEventListener("input", () => {
+el.search.addEventListener("input", () => {
   clearTimeout(timer);
-  timer = setTimeout(suchen, 180);
+  timer = setTimeout(doSearch, 180);
 });
 
-async function suchen() {
-  const q = el.suche.value.trim();
-  if (!q) return el.liste.replaceChildren();
+async function doSearch() {
+  const q = el.search.value.trim();
+  if (!q) return el.list.replaceChildren();
 
-  const { treffer, gesamt } = await searchPages(q, 25);
-  if (!treffer.length) {
-    const leer = document.createElement("div");
-    leer.className = "treffer gedimmt";
-    leer.textContent = "Keine Treffer.";
-    el.liste.replaceChildren(leer);
+  const { hits, total } = await searchPages(q, 25);
+  if (!hits.length) {
+    const empty = document.createElement("div");
+    empty.className = "hit muted";
+    empty.textContent = "No matches.";
+    el.list.replaceChildren(empty);
     return;
   }
 
-  const knoten = treffer.map(r => {
-    const d = document.createElement("div");
-    d.className = "treffer";
+  const nodes = hits.map(r => {
+    const row = document.createElement("div");
+    row.className = "hit";
 
-    const kopf = document.createElement("div");
-    const wann = document.createElement("span");
-    wann.className = "wann";
-    wann.textContent = datumKurz(r.first);
-    const seit = document.createElement("span");
-    seit.className = "gedimmt";
-    seit.textContent = `  ${jahreSeit(r.first)} · ${(r.count || 0).toLocaleString("de-DE")}×`;
-    kopf.append(wann, seit);
+    const head = document.createElement("div");
+    const when = document.createElement("span");
+    when.className = "when";
+    when.textContent = formatDate(r.first);
+    const ago = document.createElement("span");
+    ago.className = "muted";
+    ago.textContent = `  ${timeAgo(r.first)} · ${n(r.count)}×`;
+    head.append(when, ago);
 
     const url = document.createElement("div");
     url.className = "url";
@@ -120,17 +120,17 @@ async function suchen() {
     a.title = r.url;
     url.appendChild(a);
 
-    d.append(kopf, url);
-    return d;
+    row.append(head, url);
+    return row;
   });
 
-  if (gesamt > treffer.length) {
-    const mehr = document.createElement("div");
-    mehr.className = "treffer gedimmt";
-    mehr.textContent = `… ${(gesamt - treffer.length).toLocaleString("de-DE")} weitere – vollständig in den Einstellungen.`;
-    knoten.push(mehr);
+  if (total > hits.length) {
+    const more = document.createElement("div");
+    more.className = "hit muted";
+    more.textContent = `… ${n(total - hits.length)} more – see the settings for the full list.`;
+    nodes.push(more);
   }
-  el.liste.replaceChildren(...knoten);
+  el.list.replaceChildren(...nodes);
 }
 
-await zeichnen();
+await render();

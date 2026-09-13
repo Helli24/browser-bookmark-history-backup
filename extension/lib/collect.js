@@ -26,17 +26,17 @@ function esc(s = "") {
 
 export async function collectBookmarks() {
   const tree = await chrome.bookmarks.getTree();
-  const stats = { ordner: 0, links: 0 };
-  // depth 0 is the invisible root Chrome wraps everything in - not a real folder.
+  const stats = { folders: 0, links: 0 };
+  // Depth 0 is the invisible root Chrome wraps everything in - not a real folder.
   (function count(nodes, depth) {
     for (const n of nodes || []) {
       if (n.url) stats.links++;
-      else { if (depth > 0) stats.ordner++; count(n.children, depth + 1); }
+      else { if (depth > 0) stats.folders++; count(n.children, depth + 1); }
     }
   })(tree, 0);
 
   const json = JSON.stringify(
-    { exportiertAm: new Date().toISOString(), statistik: stats, baum: tree },
+    { exportedAt: new Date().toISOString(), stats, tree },
     null, 2
   );
   return { json, html: toNetscape(tree[0]?.children || []), stats };
@@ -47,7 +47,7 @@ function toNetscape(roots) {
   const sec = ms => Math.floor((ms || Date.now()) / 1000);
   const out = [
     "<!DOCTYPE NETSCAPE-Bookmark-file-1>",
-    "<!-- Automatisch erzeugt. Import via chrome://bookmarks -> Menue -> Lesezeichen importieren -->",
+    "<!-- Generated automatically. Import via chrome://bookmarks -> menu -> Import bookmarks -->",
     '<META HTTP-EQUIV="Content-Type" CONTENT="text/html; charset=UTF-8">',
     "<TITLE>Bookmarks</TITLE>",
     "<H1>Bookmarks</H1>",
@@ -80,17 +80,17 @@ export async function collectHistory(startTime, endTime) {
     text: "", startTime, endTime, maxResults: 100000
   });
 
-  const besuche = [];
+  const visits = [];
   const index = [];
 
   for (const it of items) {
     // search() only reports the LAST visit per URL, so ask for the individual ones.
-    let visits = [];
-    try { visits = await chrome.history.getVisits({ url: it.url }); } catch { /* URL gone meanwhile */ }
+    let raw = [];
+    try { raw = await chrome.history.getVisits({ url: it.url }); } catch { /* URL gone meanwhile */ }
 
-    for (const v of visits) {
+    for (const v of raw) {
       if (v.visitTime >= startTime && v.visitTime < endTime) {
-        besuche.push({ t: v.visitTime, title: it.title || "", url: it.url });
+        visits.push({ t: v.visitTime, title: it.title || "", url: it.url });
       }
     }
 
@@ -99,7 +99,7 @@ export async function collectHistory(startTime, endTime) {
     // the very first run. Chrome drops visit rows after ~90 days, so from then on our
     // own index is the only place that remembers.
     let first = it.lastVisitTime || Date.now();
-    for (const v of visits) if (v.visitTime && v.visitTime < first) first = v.visitTime;
+    for (const v of raw) if (v.visitTime && v.visitTime < first) first = v.visitTime;
 
     index.push({
       url: it.url,
@@ -111,50 +111,52 @@ export async function collectHistory(startTime, endTime) {
     });
   }
 
-  besuche.sort((a, b) => a.t - b.t);
-  return { besuche, index };
+  visits.sort((a, b) => a.t - b.t);
+  return { visits, index };
 }
 
 // One plain-text log per day.
-export function historyToText(tag, besuche) {
-  const uhr = ms => {
+export function historyToText(day, visits) {
+  const clock = ms => {
     const d = new Date(ms), p = n => String(n).padStart(2, "0");
     return `${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())}`;
   };
-  const seiten = new Set(besuche.map(b => b.url)).size;
-  const kopf = [
-    `Browserverlauf  ${tag}`,
-    `${besuche.length} Aufrufe, ${seiten} verschiedene Seiten`,
-    `erzeugt am ${fmtDateTime(Date.now())}`,
+  const pages = new Set(visits.map(v => v.url)).size;
+  const header = [
+    `Browsing history  ${day}`,
+    `${visits.length} visits, ${pages} distinct pages`,
+    `generated ${fmtDateTime(Date.now())}`,
     "=".repeat(78),
     ""
   ];
-  const zeilen = besuche.map(b => {
-    const titel = (b.title || "(ohne Titel)").replace(/\s+/g, " ").slice(0, 90);
-    return `${uhr(b.t)}  ${titel.padEnd(90)}  ${b.url}`;
+  const lines = visits.map(v => {
+    const title = (v.title || "(no title)").replace(/\s+/g, " ").slice(0, 90);
+    return `${clock(v.t)}  ${title.padEnd(90)}  ${v.url}`;
   });
   // CRLF so the files look right in Notepad.
-  return kopf.concat(zeilen, [""]).join("\r\n");
+  return header.concat(lines, [""]).join("\r\n");
 }
 
 /* ---------------- Index export ---------------- */
 
 export function indexToCsv(rows) {
   const q = s => `"${String(s || "").replace(/"/g, '""')}"`;
-  const head = "erstbesuch;letzter_besuch;aufrufe;host;titel;url";
+  const head = "first_visit;last_visit;visits;host;title;url";
   const body = rows.map(r =>
     [fmtDateTime(r.first), fmtDateTime(r.last), r.count || 0, q(r.host), q(r.title), q(r.url)].join(";")
   );
-  // Leading BOM so Excel picks up UTF-8 and shows umlauts correctly.
+  // Leading BOM so Excel picks up UTF-8 and shows non-ASCII characters correctly.
   return "﻿" + [head, ...body].join("\r\n") + "\r\n";
 }
 
 // Machine-readable twin of the CSV - this is what importIndex() reads back.
 export function indexToJsonl(rows) {
   return rows.map(r => JSON.stringify({
-    url: r.url, host: r.host, titel: r.title,
-    erstbesuch: new Date(r.first).toISOString(),
-    letzterBesuch: new Date(r.last).toISOString(),
-    aufrufe: r.count || 0
+    url: r.url,
+    host: r.host,
+    title: r.title,
+    firstVisit: new Date(r.first).toISOString(),
+    lastVisit: new Date(r.last).toISOString(),
+    visits: r.count || 0
   })).join("\n") + "\n";
 }

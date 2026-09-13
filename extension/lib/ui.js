@@ -5,14 +5,14 @@ import { loadDirHandle, saveDirHandle } from "./db.js";
 import { buildFiles, writeAll, flushQueue, getSettings, badge } from "./run.js";
 import { dateKey } from "./collect.js";
 
-export async function freigabeZustand() {
+export async function permissionState() {
   const dir = await loadDirHandle();
-  if (!dir) return { dir: null, zustand: "keiner" };
-  return { dir, zustand: await dir.queryPermission({ mode: "readwrite" }) };
+  if (!dir) return { dir: null, state: "none" };
+  return { dir, state: await dir.queryPermission({ mode: "readwrite" }) };
 }
 
 // Call from a click handler only.
-export async function ordnerWaehlen() {
+export async function pickFolder() {
   const dir = await window.showDirectoryPicker({
     mode: "readwrite",
     id: "chrome-backup",
@@ -23,67 +23,66 @@ export async function ordnerWaehlen() {
 }
 
 // Call from a click handler only.
-export async function freigabeErneuern() {
+export async function regrantPermission() {
   const dir = await loadDirHandle();
-  if (!dir) throw new Error("Es ist noch kein Zielordner ausgewaehlt.");
+  if (!dir) throw new Error("No target folder has been chosen yet.");
   const p = await dir.requestPermission({ mode: "readwrite" });
-  if (p !== "granted") throw new Error("Die Freigabe wurde abgelehnt.");
+  if (p !== "granted") throw new Error("Access was denied.");
   return dir;
 }
 
 // Full run from the page, flushing anything the scheduler could not write earlier.
-export async function sichernJetzt(grund = "manuell") {
+export async function backupNow(reason = "manual") {
   const cfg = await getSettings();
-  let { dir, zustand } = await freigabeZustand();
-  if (!dir) throw new Error("Es ist noch kein Zielordner ausgewaehlt.");
-  if (zustand !== "granted") dir = await freigabeErneuern();
+  let { dir, state } = await permissionState();
+  if (!dir) throw new Error("No target folder has been chosen yet.");
+  if (state !== "granted") dir = await regrantPermission();
 
-  const nachgeholt = await flushQueue(dir);
-  const { dateien, info, tag } = await buildFiles(cfg);
-  const res = dateien.length
-    ? await writeAll(dir, dateien, cfg.aufbewahrungTage)
-    : { geschrieben: 0, geloescht: 0 };
+  const flushed = await flushQueue(dir);
+  const { files, info, day } = await buildFiles(cfg);
+  const res = files.length
+    ? await writeAll(dir, files, cfg.retentionDays)
+    : { written: 0, deleted: 0 };
 
-  const lauf = {
-    zeit: Date.now(), tag, ok: true, grund,
-    geschrieben: res.geschrieben + nachgeholt,
-    geloescht: res.geloescht,
+  const lastRun = {
+    at: Date.now(), day, ok: true, reason,
+    written: res.written + flushed,
+    deleted: res.deleted,
     info
   };
-  await chrome.storage.local.set({ letzterLauf: lauf, verlaufBis: tag });
+  await chrome.storage.local.set({ lastRun, historyCoveredThrough: day });
   await badge("");
-  return lauf;
+  return lastRun;
 }
 
 /* ---------------- Formatting ---------------- */
 
-export function zeitpunkt(ms) {
-  if (!ms) return "noch nie";
+export function formatWhen(ms) {
+  if (!ms) return "never";
   const d = new Date(ms);
   const p = n => String(n).padStart(2, "0");
-  const heute = dateKey();
-  const tag = dateKey(d);
-  const uhr = `${p(d.getHours())}:${p(d.getMinutes())}`;
-  if (tag === heute) return `heute ${uhr}`;
-  const gestern = dateKey(new Date(Date.now() - 86400000));
-  if (tag === gestern) return `gestern ${uhr}`;
-  return `${p(d.getDate())}.${p(d.getMonth() + 1)}.${d.getFullYear()} ${uhr}`;
+  const day = dateKey(d);
+  const clock = `${p(d.getHours())}:${p(d.getMinutes())}`;
+  if (day === dateKey()) return `today ${clock}`;
+  if (day === dateKey(new Date(Date.now() - 86400000))) return `yesterday ${clock}`;
+  if (day === dateKey(new Date(Date.now() + 86400000))) return `tomorrow ${clock}`;
+  return `${formatDate(ms)} ${clock}`;
 }
 
-export function datumKurz(ms) {
+export function formatDate(ms) {
   if (!ms) return "?";
   const d = new Date(ms);
   const p = n => String(n).padStart(2, "0");
-  return `${p(d.getDate())}.${p(d.getMonth() + 1)}.${d.getFullYear()}`;
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
 }
 
-export function jahreSeit(ms) {
+export function timeAgo(ms) {
   if (!ms) return "";
-  const tage = Math.floor((Date.now() - ms) / 86400000);
-  if (tage < 1) return "heute";
-  if (tage === 1) return "gestern";
-  if (tage < 60) return `vor ${tage} Tagen`;
-  const monate = Math.round(tage / 30.44);
-  if (monate < 24) return `vor ${monate} Monaten`;
-  return `vor ${(tage / 365.25).toFixed(1).replace(".", ",")} Jahren`;
+  const days = Math.floor((Date.now() - ms) / 86400000);
+  if (days < 1) return "today";
+  if (days === 1) return "yesterday";
+  if (days < 60) return `${days} days ago`;
+  const months = Math.round(days / 30.44);
+  if (months < 24) return `${months} months ago`;
+  return `${(days / 365.25).toFixed(1)} years ago`;
 }

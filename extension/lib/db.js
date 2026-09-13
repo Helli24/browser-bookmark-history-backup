@@ -48,7 +48,7 @@ export const loadDirHandle = () =>
 // Put what a person types and what we stored on the same footing: no scheme,
 // no "www.", lower case. That way "github.com/xyz" also matches
 // "https://www.github.com/xyz/readme" - the path is what people remember.
-export function suchSchluessel(url) {
+export function searchKey(url) {
   return String(url || "").toLowerCase()
     .replace(/^[a-z][a-z0-9+.-]*:\/\//, "")
     .replace(/^www\./, "");
@@ -59,23 +59,23 @@ export function suchSchluessel(url) {
 // rows: [{ url, host, title, first, last, count }]
 // Merge instead of overwrite: keep the earliest first visit and the highest counts.
 export function mergePages(rows) {
-  const stats = { neu: 0, aktualisiert: 0 };
+  const stats = { added: 0, updated: 0 };
   return run("pages", "readwrite", (store, set) => {
     for (const row of rows) {
-      const eintrag = { ...row, k: suchSchluessel(row.url) };
+      const entry = { ...row, k: searchKey(row.url) };
       const get = store.get(row.url);
       get.onsuccess = () => {
-        const alt = get.result;
-        if (!alt) { stats.neu++; store.put(eintrag); return; }
-        stats.aktualisiert++;
+        const old = get.result;
+        if (!old) { stats.added++; store.put(entry); return; }
+        stats.updated++;
         store.put({
-          url: eintrag.url,
-          k: eintrag.k,
-          host: eintrag.host || alt.host,
-          title: eintrag.title || alt.title,
-          first: Math.min(alt.first || Infinity, eintrag.first),
-          last: Math.max(alt.last || 0, eintrag.last),
-          count: Math.max(alt.count || 0, eintrag.count || 0)
+          url: entry.url,
+          k: entry.k,
+          host: entry.host || old.host,
+          title: entry.title || old.title,
+          first: Math.min(old.first || Infinity, entry.first),
+          last: Math.max(old.last || 0, entry.last),
+          count: Math.max(old.count || 0, entry.count || 0)
         });
       };
     }
@@ -88,26 +88,26 @@ export const countPages = () =>
 
 // Substring search over the normalised URL (path included) and the title.
 // Full cursor scan - a few hundred thousand rows are milliseconds in IndexedDB,
-// and it beats maintaining a token index for a once-in-a-while lookup.
+// and it beats maintaining a token index for an occasional lookup.
 // Oldest first visit first, because that is usually the question being asked.
 export function searchPages(term, limit = 300) {
-  const q = suchSchluessel(String(term || "").trim());
+  const q = searchKey(String(term || "").trim());
   return run("pages", "readonly", (store, set) => {
-    const treffer = [];
-    let gesamt = 0;
+    const hits = [];
+    let total = 0;
     const cur = store.openCursor();
     cur.onsuccess = () => {
       const c = cur.result;
       if (!c) {
-        treffer.sort((a, b) => a.first - b.first);
-        set({ treffer: treffer.slice(0, limit), gesamt });
+        hits.sort((a, b) => a.first - b.first);
+        set({ hits: hits.slice(0, limit), total });
         return;
       }
       const v = c.value;
-      const k = v.k || suchSchluessel(v.url);
+      const k = v.k || searchKey(v.url);
       if (!q || k.includes(q) || (v.title || "").toLowerCase().includes(q)) {
-        gesamt++;
-        if (treffer.length < 5000) treffer.push(v);
+        total++;
+        if (hits.length < 5000) hits.push(v);
       }
       c.continue();
     };
