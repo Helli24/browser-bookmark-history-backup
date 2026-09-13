@@ -1,5 +1,5 @@
 // Options page: target folder, what to back up, schedule, search, maintenance.
-import { getSettings, setSettings, importIndex, DEFAULTS } from "./lib/run.js";
+import { getSettings, setSettings, importIndex, backfillAll, DEFAULTS } from "./lib/run.js";
 import { searchPages, countPages, countVisits, visitsForUrl } from "./lib/db.js";
 import {
   permissionState, pickFolder, regrantPermission, backupNow,
@@ -14,7 +14,8 @@ const el = {
   time: $("time"), retention: $("retention"), nextRun: $("nextRun"),
   btnBackup: $("btnBackup"), backupMsg: $("backupMsg"),
   search: $("search"), searchInfo: $("searchInfo"), table: $("table"), hits: $("hits"),
-  btnImport: $("btnImport"), importMsg: $("importMsg"), statusLine: $("statusLine")
+  btnImport: $("btnImport"), importMsg: $("importMsg"), statusLine: $("statusLine"),
+  btnBackfill: $("btnBackfill"), backfillMsg: $("backfillMsg")
 };
 
 const n = x => (x || 0).toLocaleString("en-US");
@@ -264,6 +265,40 @@ async function toggleDetail(tr, toggle, row) {
 }
 
 /* ---------------- Maintenance ---------------- */
+
+el.btnBackfill.addEventListener("click", async () => {
+  el.btnBackfill.disabled = true;
+  el.btnBackup.disabled = true;
+  setMsg(el.backfillMsg, "starting…");
+  try {
+    let { dir, state } = await permissionState();
+    if (!dir) throw new Error("No target folder has been chosen yet.");
+    if (state !== "granted") dir = await regrantPermission();
+
+    const r = await backfillAll(dir, p => {
+      if (p.phase === "scan") {
+        setMsg(el.backfillMsg, `Scanning history… ${p.done}/${p.total}, ${n(p.urls)} pages so far`);
+      } else if (p.phase === "visits") {
+        setMsg(el.backfillMsg,
+          `Reading timestamps… ${n(p.done)}/${n(p.total)} pages, ${n(p.visits)} visits found`);
+      } else {
+        setMsg(el.backfillMsg, `Writing ${n(p.total)} files…`);
+      }
+    });
+
+    setMsg(el.backfillMsg,
+      `Done: ${n(r.visits)} visits across ${n(r.days)} days recovered from ${n(r.urls)} pages, ` +
+      `${n(r.files)} files written. The database now holds ${n(r.pagesTotal)} pages ` +
+      `and ${n(r.visitsTotal)} visits.`, "ok");
+    await doSearch();
+  } catch (e) {
+    setMsg(el.backfillMsg, `Error: ${e.message}`, "err");
+  } finally {
+    el.btnBackfill.disabled = false;
+    el.btnBackup.disabled = false;
+    await render();
+  }
+});
 
 el.btnImport.addEventListener("click", async () => {
   el.btnImport.disabled = true;

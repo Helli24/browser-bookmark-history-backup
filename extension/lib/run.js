@@ -4,7 +4,7 @@ import {
   mergeVisits, visitsInYear, countVisits
 } from "./db.js";
 import {
-  dateKey, collectBookmarks, collectHistory, historyToText,
+  dateKey, collectBookmarks, collectHistory, collectAllHistory, historyToText,
   indexToCsv, indexToJsonl, visitsToJsonl
 } from "./collect.js";
 
@@ -231,6 +231,61 @@ export async function badge(text) {
     await chrome.action.setBadgeText({ text });
     if (text) await chrome.action.setBadgeBackgroundColor({ color: "#c2410c" });
   } catch { /* no action API in this context */ }
+}
+
+/* ---------------- One-off backfill ---------------- */
+
+// Writes a daily log for every day Chrome still covers and fills the database
+// with the matching timestamps. Meant to be run once, shortly after installing:
+// whatever is inside Chrome's rolling window today is gone in three months.
+export async function backfillAll(dir, onProgress = () => {}) {
+  const cfg = await getSettings();
+  const { byDay, index, allVisits, urls } = await collectAllHistory({ onProgress });
+
+  const files = [];
+  if (cfg.history) {
+    for (const [day, visits] of [...byDay].sort()) {
+      files.push({
+        folder: FOLDERS.history,
+        name: `history-${day}.txt`,
+        content: historyToText(day, visits)
+      });
+    }
+  }
+
+  let added = 0;
+  if (cfg.index) {
+    if (index.length) added = (await mergePages(index)).added;
+    const years = allVisits.length ? await mergeVisits(allVisits) : new Set();
+    for (const year of years) {
+      files.push({
+        folder: FOLDERS.index,
+        name: `visits-${year}.jsonl`,
+        content: visitsToJsonl(await visitsInYear(year))
+      });
+    }
+    const all = await allPages();
+    files.push({ folder: FOLDERS.index, name: "page-index.csv", content: indexToCsv(all) });
+    files.push({ folder: FOLDERS.index, name: "page-index.jsonl", content: indexToJsonl(all) });
+  }
+
+  onProgress({ phase: "write", done: 0, total: files.length });
+  // No pruning here: retention is the scheduled run's job, and deleting a file
+  // we just recovered would be an unpleasant surprise.
+  await writeAll(dir, files, 0);
+
+  const today = dateKey();
+  await chrome.storage.local.set({ historyCoveredThrough: today });
+
+  return {
+    days: byDay.size,
+    urls,
+    visits: allVisits.length,
+    added,
+    files: files.length,
+    pagesTotal: await countPages(),
+    visitsTotal: await countVisits()
+  };
 }
 
 /* ---------------- Rebuilding the index ---------------- */

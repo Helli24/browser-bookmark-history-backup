@@ -179,6 +179,19 @@
     <h2>Maintenance</h2>
     <div class="row">
       <div class="grow">
+        <strong>Recover everything Chrome still remembers</strong>
+        <div class="muted" style="font-size:12.5px">
+          One-off. Writes a daily log for every day Chrome still covers and fills the index
+          with those timestamps. Chrome discards visits after about 90 days — whatever is in
+          there today is gone in three months, so this is worth running once, now.
+        </div>
+      </div>
+      <button id="btnBackfill">Recover</button>
+    </div>
+    <div id="backfillMsg" class="msg"></div>
+
+    <div class="row" style="margin-top:16px;border-top:1px solid var(--border);padding-top:16px">
+      <div class="grow">
         <strong>Import the index from the backup folder</strong>
         <div class="muted" style="font-size:12.5px">
           After reinstalling Chrome or the extension: reads <code>Index\page-index.jsonl</code> back in.

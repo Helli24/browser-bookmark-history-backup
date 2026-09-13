@@ -114,6 +114,20 @@ check("visitsInYear 2026", (await D.visitsInYear(2026)).length, 4);
 check("visitsInYear 2025", (await D.visitsInYear(2025)).length, 0);
 await D.clearVisits();
 
+// ---- daily log carries the full date per line ----
+const txt = C.historyToText("2026-09-13", h.visits);
+const firstLine = txt.split("\r\n")[5];
+check("daily log: line starts with date", /^2026-09-13 \d{2}:\d{2}:\d{2}  /.test(firstLine), true);
+
+// ---- one-off backfill groups visits by calendar day ----
+const bf = await C.collectAllHistory({ days: 300 });
+check("backfill: unique urls", bf.urls, 2);
+check("backfill: visits found", bf.allVisits.length, 4);
+check("backfill: days covered", bf.byDay.size, 2);
+check("backfill: has the february day", bf.byDay.has("2026-02-25"), true);
+check("backfill: day sorted oldest first",
+      bf.byDay.get("2026-09-13")[0].t <= bf.byDay.get("2026-09-13").at(-1).t, true);
+
 log("");
 log(fails ? `${fails} FAILURE(S)` : "ALL CHECKS PASSED");
 log("--- history-2026-09-13.txt ---");

@@ -60,6 +60,18 @@ Chrome keeps counting visits after it has discarded the underlying timestamps, s
 its total can exceed the number of timestamps anyone still has. When that happens
 the expanded row says so rather than quietly showing fewer.
 
+## Run the recovery once
+
+Settings → Maintenance → **Recover everything Chrome still remembers**.
+
+Chrome's history is a rolling ~90-day window. Everything in it right now can still
+be rescued; in three months it is gone for good. The recovery makes one pass over
+that whole window, writes a daily log for every day it covers, and fills the index
+with the matching timestamps. It takes a minute or two and is worth doing on the
+day you install.
+
+Afterwards the daily run takes over and only looks at the last few days.
+
 ## The one caveat
 
 Chrome forgets the folder permission when the **browser restarts**. The scheduled
@@ -103,9 +115,22 @@ Permissions: `bookmarks`, `history`, `storage`, `alarms`, `unlimitedStorage`.
 - Local history only. History synced from other devices is not exposed to
   extensions.
 - Incognito sessions never appear.
-- Every run rewrites the complete page index, plus the visit file of any year
-  that got new rows — in practice only the current one. With a very large archive
-  that is a few tens of MB per day.
+
+## File sizes
+
+Rough numbers for heavy use — 300 visits a day, so about 110,000 a year:
+
+| File | Size | Rewritten |
+|---|---|---|
+| `history-<date>.txt` | ~40 KB per day | once, on the day it covers |
+| `visits-<year>.jsonl` | ~11 MB per year | daily, current year only |
+| `page-index.csv` / `.jsonl` | ~150 bytes per unique URL | daily, in full |
+
+The per-year split keeps the visit archive flat: a daily run rewrites this year's
+file, never the whole history. The page index is the only file that grows without
+bound, and it grows slowly — after ten years of heavy browsing expect a few tens
+of MB, which is a second of disk I/O once a day. If it ever does become annoying,
+the same trick applies: split it by first-visit year.
 
 ## Self-test
 

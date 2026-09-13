@@ -120,12 +120,10 @@ export async function collectHistory(startTime, endTime) {
   return { visits, index, allVisits };
 }
 
-// One plain-text log per day.
+// One plain-text log per day. Each line carries the full date even though the
+// filename already has it - a line stays meaningful once it is grepped out of
+// the folder or pasted somewhere else.
 export function historyToText(day, visits) {
-  const clock = ms => {
-    const d = new Date(ms), p = n => String(n).padStart(2, "0");
-    return `${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())}`;
-  };
   const pages = new Set(visits.map(v => v.url)).size;
   const header = [
     `Browsing history  ${day}`,
@@ -135,11 +133,85 @@ export function historyToText(day, visits) {
     ""
   ];
   const lines = visits.map(v => {
-    const title = (v.title || "(no title)").replace(/\s+/g, " ").slice(0, 90);
-    return `${clock(v.t)}  ${title.padEnd(90)}  ${v.url}`;
+    const title = (v.title || "(no title)").replace(/\s+/g, " ").slice(0, 80);
+    return `${fmtDateTime(v.t)}  ${title.padEnd(80)}  ${v.url}`;
   });
   // CRLF so the files look right in Notepad.
   return header.concat(lines, [""]).join("\r\n");
+}
+
+/* ---------------- One-off backfill ---------------- */
+
+// Everything Chrome still remembers, in one pass. Used once, to rescue the
+// rolling ~90-day window before it expires; the daily run only ever looks at
+// the last few days.
+//
+// Two things make this cheap enough to run interactively: the window is scanned
+// in chunks so no single search() hits an internal result cap, and getVisits()
+// is called once per unique URL instead of once per URL per day.
+export async function collectAllHistory({ days = 120, onProgress = () => {} } = {}) {
+  const now = Date.now();
+  const start = new Date();
+  start.setHours(0, 0, 0, 0);
+  start.setDate(start.getDate() - days);
+
+  const meta = new Map();   // url -> { title, count, last }
+  const CHUNK = 15 * 86400000;
+  let scanned = 0;
+  const chunks = Math.ceil((now - start.getTime()) / CHUNK);
+
+  for (let from = start.getTime(); from < now; from += CHUNK) {
+    const to = Math.min(from + CHUNK, now);
+    const items = await chrome.history.search({
+      text: "", startTime: from, endTime: to, maxResults: 100000
+    });
+    for (const it of items) {
+      const old = meta.get(it.url);
+      meta.set(it.url, {
+        title: it.title || old?.title || "",
+        count: Math.max(it.visitCount || 0, old?.count || 0),
+        last: Math.max(it.lastVisitTime || 0, old?.last || 0)
+      });
+    }
+    onProgress({ phase: "scan", done: ++scanned, total: chunks, urls: meta.size });
+  }
+
+  const index = [];
+  const allVisits = [];
+  const byDay = new Map();
+  let done = 0;
+
+  for (const [url, m] of meta) {
+    let raw = [];
+    try { raw = await chrome.history.getVisits({ url }); } catch { /* URL gone meanwhile */ }
+
+    let first = m.last || now;
+    for (const v of raw) {
+      if (!v.visitTime) continue;
+      if (v.visitTime < first) first = v.visitTime;
+      allVisits.push({ url, t: v.visitTime });
+
+      const key = dateKey(new Date(v.visitTime));
+      if (!byDay.has(key)) byDay.set(key, []);
+      byDay.get(key).push({ t: v.visitTime, title: m.title, url });
+    }
+
+    index.push({
+      url,
+      host: hostOf(url),
+      title: m.title,
+      first,
+      last: m.last || first,
+      count: m.count || 1
+    });
+
+    if (++done % 200 === 0 || done === meta.size) {
+      onProgress({ phase: "visits", done, total: meta.size, visits: allVisits.length });
+    }
+  }
+
+  for (const list of byDay.values()) list.sort((a, b) => a.t - b.t);
+  return { byDay, index, allVisits, urls: meta.size };
 }
 
 /* ---------------- Index export ---------------- */
