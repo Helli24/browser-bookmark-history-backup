@@ -2,7 +2,7 @@
 // rather than in the service worker: re-granting the directory permission requires a
 // user gesture, and only a page has one.
 import { loadDirHandle, saveDirHandle } from "./db.js";
-import { buildFiles, writeAll, flushQueue, getSettings, badge } from "./run.js";
+import { buildFiles, writeAll, flushQueue, getSettings, badge, FOLDERS } from "./run.js";
 import { dateKey } from "./collect.js";
 
 export async function permissionState() {
@@ -40,9 +40,14 @@ export async function backupNow(reason = "manual") {
 
   const flushed = await flushQueue(dir);
   const { files, info, day } = await buildFiles(cfg);
+  const retention = {
+    [FOLDERS.bookmarks]: cfg.bookmarksRetentionDays || 0,
+    [FOLDERS.history]: cfg.historyRetentionDays || 0
+  };
   const res = files.length
-    ? await writeAll(dir, files, cfg.retentionDays)
+    ? await writeAll(dir, files, retention)
     : { written: 0, deleted: 0 };
+  if (info.bookmarkHash) await chrome.storage.local.set({ lastBookmarkHash: info.bookmarkHash });
 
   const lastRun = {
     at: Date.now(), day, ok: true, reason,

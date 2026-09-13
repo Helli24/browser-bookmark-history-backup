@@ -49,6 +49,13 @@
   .toggle + .toggle { border-top: 1px solid var(--border); }
   .toggle .txt { flex: 1; }
   .toggle .hint { color: var(--muted); font-size: 12.5px; }
+  .sub-setting {
+    margin: 10px 0 0 2px; padding-left: 12px;
+    border-left: 2px solid var(--border);
+  }
+  .sub-setting .hint { margin-top: 3px; max-width: 62ch; }
+  label.inline { display: inline-flex; align-items: center; gap: 7px; cursor: pointer; }
+  label.inline input[type=number] { width: 74px; cursor: text; }
   code { background: var(--bg); border: 1px solid var(--border); border-radius: 4px; padding: 1px 5px; font-size: 12.5px; }
   .badge { display: inline-block; padding: 2px 9px; border-radius: 99px; font-size: 12px; font-weight: 600; }
   .b-ok { background: color-mix(in srgb, var(--ok) 16%, transparent); color: var(--ok); }
@@ -135,7 +142,32 @@
       <input type="checkbox" id="cbBookmarks">
       <div class="txt">
         <label for="cbBookmarks"><strong>Bookmarks</strong></label>
-        <div class="hint">One <code>.json</code> (complete, easy to diff) and one <code>.html</code> (importable back into Chrome) per day.</div>
+        <div class="hint">One <code>.json</code> (complete, easy to diff) and one <code>.html</code> (importable back into Chrome).</div>
+        <div class="sub-setting">
+          <label class="inline">
+            <input type="checkbox" id="cbOnlyOnChange">
+            <span>Only write when something changed</span>
+          </label>
+          <div class="hint">
+            Bookmarks barely move from one day to the next, so a daily copy is almost always
+            identical to yesterday's. With this on, a new file appears only when you actually
+            added, moved or removed something — the folder becomes a history of changes instead
+            of a pile of duplicates, and the date on the newest file tells you when you last
+            touched your bookmarks.
+          </div>
+        </div>
+        <div class="sub-setting">
+          <label class="inline">
+            <span>Keep for</span>
+            <input type="number" id="bookmarksRetention" min="0" max="9999" step="1">
+            <span>days</span>
+          </label>
+          <div class="hint">
+            <code>0</code> keeps everything. The most recent snapshot is never deleted, whatever
+            you set here — otherwise leaving your bookmarks alone for longer than this window
+            would eventually remove the only backup you have.
+          </div>
+        </div>
       </div>
     </div>
     <div class="toggle">
@@ -143,6 +175,18 @@
       <div class="txt">
         <label for="cbHistory"><strong>History as a daily log</strong></label>
         <div class="hint">One text file per day with the time, title and URL of every visit.</div>
+        <div class="sub-setting">
+          <label class="inline">
+            <span>Keep for</span>
+            <input type="number" id="historyRetention" min="0" max="9999" step="1">
+            <span>days</span>
+          </label>
+          <div class="hint">
+            <code>0</code> keeps everything, which is the default here: every daily log is unique,
+            so deleting one destroys the only record of that day. Chrome itself has already
+            forgotten it.
+          </div>
+        </div>
       </div>
     </div>
     <div class="toggle">
@@ -161,10 +205,9 @@
       <input type="time" id="time">
       <span class="muted" id="nextRun"></span>
     </div>
-    <div class="row">
-      <label for="retention">Keep daily files for</label>
-      <input type="number" id="retention" min="0" max="9999" step="1" style="width:90px">
-      <span class="muted">days – <code>0</code> means never delete. The index is never affected.</span>
+    <div class="row muted" style="font-size:12.5px">
+      Applies to both. How long each kind is kept is set above, next to its switch;
+      the index is never pruned.
     </div>
     <div class="row" style="margin-top:16px">
       <button class="primary" id="btnBackup">Back up now</button>

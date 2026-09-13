@@ -12,7 +12,9 @@ const el = {
   folderName: $("folderName"), folderNote: $("folderNote"),
   permBadge: $("permBadge"), btnFolder: $("btnFolder"),
   cbBookmarks: $("cbBookmarks"), cbHistory: $("cbHistory"), cbIndex: $("cbIndex"),
-  time: $("time"), retention: $("retention"), nextRun: $("nextRun"),
+  time: $("time"), nextRun: $("nextRun"),
+  cbOnlyOnChange: $("cbOnlyOnChange"),
+  bookmarksRetention: $("bookmarksRetention"), historyRetention: $("historyRetention"),
   btnBackup: $("btnBackup"), backupMsg: $("backupMsg"),
   search: $("search"), searchInfo: $("searchInfo"), table: $("table"), hits: $("hits"),
   btnImport: $("btnImport"), importMsg: $("importMsg"), statusLine: $("statusLine"),
@@ -34,7 +36,9 @@ async function render() {
   el.cbHistory.checked = cfg.history;
   el.cbIndex.checked = cfg.index;
   el.time.value = cfg.time || DEFAULTS.time;
-  el.retention.value = cfg.retentionDays ?? DEFAULTS.retentionDays;
+  el.cbOnlyOnChange.checked = cfg.bookmarksOnlyOnChange;
+  el.bookmarksRetention.value = cfg.bookmarksRetentionDays ?? DEFAULTS.bookmarksRetentionDays;
+  el.historyRetention.value = cfg.historyRetentionDays ?? DEFAULTS.historyRetentionDays;
   // Only overwrite while the field is idle, so typing is never interrupted.
   if (document.activeElement !== el.folderNote) el.folderNote.value = cfg.folderNote || "";
 
@@ -115,8 +119,16 @@ el.cbBookmarks.addEventListener("change", () => save({ bookmarks: el.cbBookmarks
 el.cbHistory.addEventListener("change", () => save({ history: el.cbHistory.checked }));
 el.cbIndex.addEventListener("change", () => save({ index: el.cbIndex.checked }));
 el.time.addEventListener("change", () => el.time.value && save({ time: el.time.value }));
-el.retention.addEventListener("change", () =>
-  save({ retentionDays: Math.max(0, parseInt(el.retention.value, 10) || 0) })
+el.cbOnlyOnChange.addEventListener("change", () =>
+  save({ bookmarksOnlyOnChange: el.cbOnlyOnChange.checked })
+);
+
+const days = input => Math.max(0, parseInt(input.value, 10) || 0);
+el.bookmarksRetention.addEventListener("change", () =>
+  save({ bookmarksRetentionDays: days(el.bookmarksRetention) })
+);
+el.historyRetention.addEventListener("change", () =>
+  save({ historyRetentionDays: days(el.historyRetention) })
 );
 el.folderNote.addEventListener("change", () => save({ folderNote: el.folderNote.value.trim() }));
 
@@ -128,7 +140,8 @@ async function doBackup() {
   try {
     const run = await backupNow("manual");
     const t = [`${run.written} files written`];
-    if (run.info.bookmarks) t.push(`${n(run.info.bookmarks)} bookmarks`);
+    if (run.info.bookmarksUnchanged) t.push("bookmarks unchanged, not rewritten");
+    else if (run.info.bookmarks) t.push(`${n(run.info.bookmarks)} bookmarks`);
     if (run.info.visits) t.push(`${n(run.info.visits)} visits`);
     if (run.info.indexAdded) t.push(`${n(run.info.indexAdded)} new pages indexed`);
     if (run.info.visitsTotal) t.push(`${n(run.info.visitsTotal)} visits recorded`);

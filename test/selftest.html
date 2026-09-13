@@ -129,6 +129,30 @@ check("backfill: has the february day", bf.byDay.has("2026-02-25"), true);
 check("backfill: day sorted oldest first",
       bf.byDay.get("2026-09-13")[0].t <= bf.byDay.get("2026-09-13").at(-1).t, true);
 
+// ---- pruning must never remove the last remaining snapshot ----
+const R = mods[base + "lib/run.js"];
+const sept = d => new Date(2026, 8, d).getTime();
+const two = ["bookmarks-2026-09-01.json", "bookmarks-2026-09-01.html",
+             "bookmarks-2026-09-10.json", "bookmarks-2026-09-10.html"];
+check("prune: drops the older date", R.selectPrunable(two, sept(5)).sort().join(","),
+      "bookmarks-2026-09-01.html,bookmarks-2026-09-01.json");
+check("prune: spares both files of the newest date",
+      R.selectPrunable(two, sept(5)).some(f => f.includes("09-10")), false);
+
+// The case that matters: nothing changed for longer than the retention window,
+// so every file on disk is past the cutoff. Deleting them all would leave the
+// user with no bookmark backup at all.
+const stale = ["bookmarks-2026-01-02.json", "bookmarks-2026-01-02.html"];
+check("prune: last snapshot survives an expired window", R.selectPrunable(stale, sept(1)).length, 0);
+check("prune: leaves undated files alone", R.selectPrunable(["page-index.csv"], sept(1)).length, 0);
+check("prune: empty folder", R.selectPrunable([], sept(1)).length, 0);
+
+// The hash is what decides whether the bookmarks changed at all.
+const bmHtml = (await C.collectBookmarks()).html;
+check("sha256: stable", await R.sha256(bmHtml), await R.sha256(bmHtml));
+check("sha256: reacts to a change",
+      (await R.sha256(bmHtml)) === (await R.sha256(bmHtml + " ")), false);
+
 log("");
 log(fails ? `${fails} FAILURE(S)` : "ALL CHECKS PASSED");
 log("--- history-2026-09-13.txt ---");

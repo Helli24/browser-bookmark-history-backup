@@ -13,14 +13,31 @@ export const DEFAULTS = {
   bookmarks: true,
   history: true,
   index: true,
-  retentionDays: 365,   // 0 = keep forever; only applies to the per-day files
+  // Retention is per folder because the two hold very different things. A daily
+  // bookmark file is a full snapshot of a slowly changing state, so old ones are
+  // near-duplicates. A daily history log is unique: deleting it destroys the only
+  // record of that day, which is why it keeps everything by default.
+  bookmarksRetentionDays: 30,    // 0 = keep forever
+  bookmarksOnlyOnChange: true,
+  historyRetentionDays: 0,       // 0 = keep forever
   folderName: "",
   folderNote: ""    // the full path, typed by hand: Chrome never tells us
 };
 
 export const FOLDERS = { bookmarks: "Bookmarks", history: "History", index: "Index" };
+
+const retentionFor = cfg => ({
+  [FOLDERS.bookmarks]: cfg.bookmarksRetentionDays || 0,
+  [FOLDERS.history]: cfg.historyRetentionDays || 0
+});
+
 const MAX_CATCHUP_DAYS = 14;
 const MAX_QUEUE = 10;
+
+export async function sha256(text) {
+  const buf = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(text));
+  return [...new Uint8Array(buf)].map(b => b.toString(16).padStart(2, "0")).join("");
+}
 
 export async function getSettings() {
   const { settings } = await chrome.storage.local.get("settings");
@@ -44,8 +61,21 @@ export async function buildFiles(s = null) {
   if (cfg.bookmarks) {
     const { json, html, stats } = await collectBookmarks();
     info.bookmarks = stats.links;
-    files.push({ folder: FOLDERS.bookmarks, name: `bookmarks-${today}.json`, content: json });
-    files.push({ folder: FOLDERS.bookmarks, name: `bookmarks-${today}.html`, content: html });
+
+    // The HTML export carries no generation timestamp, so it hashes to the same
+    // value as long as nothing about the bookmarks themselves moved.
+    const hash = await sha256(html);
+    const { lastBookmarkHash } = await chrome.storage.local.get("lastBookmarkHash");
+
+    if (cfg.bookmarksOnlyOnChange && hash === lastBookmarkHash) {
+      info.bookmarksUnchanged = true;
+    } else {
+      // Handed back so the caller can store it once the write actually succeeded -
+      // remembering it here would skip tomorrow's write after a failed one.
+      info.bookmarkHash = hash;
+      files.push({ folder: FOLDERS.bookmarks, name: `bookmarks-${today}.json`, content: json });
+      files.push({ folder: FOLDERS.bookmarks, name: `bookmarks-${today}.html`, content: html });
+    }
   }
 
   if (cfg.history || cfg.index) {
@@ -135,7 +165,8 @@ export async function getGrantedDir() {
   return dir;
 }
 
-export async function writeAll(dir, files, retentionDays = 0) {
+// retention: { [folderName]: days }. 0 or missing means keep everything.
+export async function writeAll(dir, files, retention = {}) {
   const subdirs = new Map();
   for (const f of files) {
     if (!subdirs.has(f.folder)) {
@@ -148,25 +179,43 @@ export async function writeAll(dir, files, retentionDays = 0) {
   }
 
   let deleted = 0;
-  if (retentionDays > 0) {
-    for (const [name, h] of subdirs) {
-      if (name === FOLDERS.index) continue;          // the index is cumulative, never prune it
-      deleted += await prune(h, retentionDays);
-    }
+  for (const [name, h] of subdirs) {
+    if (name === FOLDERS.index) continue;            // the index is cumulative, never prune it
+    const days = retention[name] || 0;
+    if (days > 0) deleted += await prune(h, days);
   }
   return { written: files.length, deleted };
 }
 
-async function prune(dir, days) {
-  const cutoff = Date.now() - days * 86400000;
-  let n = 0;
-  for await (const [name, h] of dir.entries()) {
-    if (h.kind !== "file") continue;
+// Which of these files may be deleted? Split out from the file handling so the
+// rule can be tested without a directory.
+//
+// The newest date is always spared, whatever the cutoff says. Otherwise a folder
+// that only gets written when something actually changed would eventually lose
+// its last remaining snapshot: leave your bookmarks alone for longer than the
+// retention window and the one backup you have would be pruned away.
+export function selectPrunable(names, cutoffMs, keepNewestDates = 1) {
+  const dated = [];
+  for (const name of names) {
     const m = name.match(/(\d{4})-(\d{2})-(\d{2})/);
-    if (!m) continue;
-    if (new Date(+m[1], +m[2] - 1, +m[3]).getTime() < cutoff) {
-      try { await dir.removeEntry(name); n++; } catch { /* not worth failing the run over */ }
-    }
+    if (!m) continue;                                 // no date in the name: not ours to delete
+    dated.push({ name, t: new Date(+m[1], +m[2] - 1, +m[3]).getTime() });
+  }
+
+  const keep = new Set(
+    [...new Set(dated.map(d => d.t))].sort((a, b) => b - a).slice(0, keepNewestDates)
+  );
+  return dated.filter(d => !keep.has(d.t) && d.t < cutoffMs).map(d => d.name);
+}
+
+async function prune(dir, days) {
+  const names = [];
+  for await (const [name, h] of dir.entries()) {
+    if (h.kind === "file") names.push(name);
+  }
+  let n = 0;
+  for (const name of selectPrunable(names, Date.now() - days * 86400000)) {
+    try { await dir.removeEntry(name); n++; } catch { /* not worth failing the run over */ }
   }
   return n;
 }
@@ -187,7 +236,7 @@ export async function flushQueue(dir) {
   if (!queue.length) return 0;
   let n = 0;
   for (const entry of queue) {
-    await writeAll(dir, entry.files, cfg.retentionDays);
+    await writeAll(dir, entry.files, retentionFor(cfg));
     n += entry.files.length;
   }
   await chrome.storage.local.set({ queue: [] });
@@ -206,7 +255,8 @@ export async function runBackup(reason = "alarm") {
   try {
     const dir = await getGrantedDir();
     const flushed = await flushQueue(dir);
-    const res = await writeAll(dir, files, cfg.retentionDays);
+    const res = await writeAll(dir, files, retentionFor(cfg));
+    if (info.bookmarkHash) await chrome.storage.local.set({ lastBookmarkHash: info.bookmarkHash });
     const lastRun = {
       at: Date.now(), day, ok: true, reason,
       written: res.written + flushed, deleted: res.deleted, info
@@ -272,7 +322,7 @@ export async function backfillAll(dir, onProgress = () => {}) {
   onProgress({ phase: "write", done: 0, total: files.length });
   // No pruning here: retention is the scheduled run's job, and deleting a file
   // we just recovered would be an unpleasant surprise.
-  await writeAll(dir, files, 0);
+  await writeAll(dir, files, {});
 
   const today = dateKey();
   await chrome.storage.local.set({ historyCoveredThrough: today });

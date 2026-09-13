@@ -43,8 +43,24 @@ D:\Chrome Backup\
     └── visits-2026.jsonl             every individual visit, one file per year
 ```
 
-Daily files are subject to the retention setting (365 days by default, `0` means
-never delete). The index is never pruned.
+## Retention
+
+Bookmarks and history are kept on separate clocks, because they are not the same
+kind of thing.
+
+A **bookmark** file is a complete snapshot of a slowly changing state — today's is
+almost always identical to yesterday's. Default: keep 30 days, and *only write when
+something actually changed*, so the folder becomes a record of when you edited your
+bookmarks rather than a pile of duplicates.
+
+A **history** log is unique. Delete it and that day is gone, since Chrome forgot it
+long ago. Default: `0`, keep everything.
+
+`0` is available for both. Whatever the setting, **the most recent snapshot is never
+deleted** — otherwise leaving your bookmarks untouched for longer than the retention
+window would quietly remove the last backup you had.
+
+The index is never pruned at all.
 
 ## Search
 
