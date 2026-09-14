@@ -9,7 +9,7 @@ import {
 const $ = id => document.getElementById(id);
 const el = {
   permBanner: $("permBanner"), permBannerText: $("permBannerText"), btnRegrant: $("btnRegrant"),
-  folderName: $("folderName"), folderNote: $("folderNote"),
+  folderName: $("folderName"), folderNote: $("folderNote"), folderMsg: $("folderMsg"),
   permBadge: $("permBadge"), btnFolder: $("btnFolder"),
   cbBookmarks: $("cbBookmarks"), cbHistory: $("cbHistory"), cbIndex: $("cbIndex"),
   time: $("time"), nextRun: $("nextRun"),
@@ -98,8 +98,9 @@ el.btnFolder.addEventListener("click", async () => {
       try {
         const r = await importIndex(dir);
         if (r.read) {
-          setMsg(el.importMsg,
-            `Existing backup found and adopted: ${n(r.total)} pages, ${n(r.visitsTotal)} visits.`,
+          setMsg(el.folderMsg,
+            `This folder already held a backup, and it has been adopted: ` +
+            `${n(r.total)} pages and ${n(r.visitsTotal)} visits are back in the database.`,
             "ok");
         }
       } catch (e) {
@@ -107,10 +108,10 @@ el.btnFolder.addEventListener("click", async () => {
         // Anything else means something IS there and we could not read it, so
         // stop: writing now would overwrite data we failed to rescue.
         if (e?.name !== "NotFoundError") {
-          setMsg(el.importMsg,
+          setMsg(el.folderMsg,
             `There is an index in this folder but it could not be read: ${e.message} — ` +
-            `nothing has been written. Check the folder, then use Import below.`, "err");
-          setMsg(el.backupMsg, "First backup skipped to avoid overwriting existing data.", "err");
+            `nothing has been written, so the existing data is untouched. ` +
+            `Check the folder, then use Import under Maintenance.`, "err");
           return;
         }
       }
@@ -120,7 +121,7 @@ el.btnFolder.addEventListener("click", async () => {
     setMsg(el.backupMsg, "Folder set, running the first backup…");
     await doBackup();
   } catch (e) {
-    if (e?.name !== "AbortError") setMsg(el.backupMsg, `Error: ${e.message}`, "err");
+    if (e?.name !== "AbortError") setMsg(el.folderMsg, `Error: ${e.message}`, "err");
   }
 });
 
@@ -167,11 +168,10 @@ async function doBackup() {
   try {
     const run = await backupNow("manual");
     const t = [`${run.written} files written`];
-    if (run.info.bookmarksUnchanged) t.push("bookmarks unchanged, not rewritten");
+    if (run.info.bookmarksUnchanged) t.push("bookmarks unchanged");
     else if (run.info.bookmarks) t.push(`${n(run.info.bookmarks)} bookmarks`);
-    if (run.info.visits) t.push(`${n(run.info.visits)} visits`);
-    if (run.info.indexAdded) t.push(`${n(run.info.indexAdded)} new pages indexed`);
-    if (run.info.visitsTotal) t.push(`${n(run.info.visitsTotal)} visits recorded`);
+    if (run.info.visits) t.push(`${n(run.info.visits)} new visits logged`);
+    if (run.info.indexAdded) t.push(`${n(run.info.indexAdded)} pages new to the index`);
     if (run.deleted) t.push(`${run.deleted} old files removed`);
     setMsg(el.backupMsg, t.join(", "), "ok");
   } catch (e) {
