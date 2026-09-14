@@ -139,6 +139,10 @@ are ignored:
 | `jira` | hits in the host, in the path, or in the title |
 | `"facebook.com"` | that page and nothing below it — see below |
 
+Right-clicking a page or a link offers **"When was I first here?"**, which opens
+the settings page with that address already quoted in the search box — the
+question usually turns up while browsing, not while in the settings.
+
 **Quotes mean the whole URL.** `facebook.com` matches every photo, message and
 profile you ever opened there; `"facebook.com"` matches the front page alone. The
 scheme, `www.` and a trailing slash are ignored on both sides, so
@@ -206,6 +210,26 @@ Afterwards the daily run takes over and only looks at the last few days.
 The other button in that section, **Restore from your backup folder**, goes the
 opposite way — see [Restoring](#restoring).
 
+## When it stops
+
+A backup tool fails quietly. The alarm does not fire, the browser stays closed for
+a week, the same error repeats every night — and none of that is visible until the
+day the files are needed.
+
+So if nothing has been written for **three days**, the icon gets a mark, the popup
+leads with it, and the settings page opens with a banner naming the date of the
+last run that actually wrote something. The button there re-asks for the folder
+permission if that is what went missing, and runs the backup.
+
+"Last run that wrote something" is kept separately from "last run", which a later
+failure overwrites — otherwise a nightly error would keep resetting the clock it
+is supposed to trip.
+
+The check is a date comparison against a value in storage: no database, nothing to
+wait for. It runs whenever the service worker wakes up, browser start included.
+The case worth catching is the schedule not running at all, and that is precisely
+the case where nothing else would raise a hand.
+
 ## The one caveat
 
 The browser forgets the folder permission when it **restarts**. The scheduled
@@ -250,7 +274,8 @@ it was supposed to read.
 | `test/bench.html` | Times the statistics scan against 100,000 visits |
 | `test/preview.html` | Renders the options page outside an extension, for layout work |
 
-Permissions: `bookmarks`, `history`, `storage`, `alarms`, `unlimitedStorage`.
+Permissions: `bookmarks`, `history`, `storage`, `alarms`, `unlimitedStorage`,
+`contextMenus`.
 
 ## The activity log
 

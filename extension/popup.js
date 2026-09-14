@@ -1,6 +1,7 @@
 // Popup: status at a glance, back up now, quick lookup in the index.
 import { searchPages, countPages } from "./lib/db.js";
 import { permissionState, backupNow, formatWhen, formatDate, timeAgo } from "./lib/ui.js";
+import { staleness, STALE_DAYS } from "./lib/run.js";
 
 const $ = id => document.getElementById(id);
 const el = {
@@ -37,11 +38,17 @@ async function render() {
     el.btnBackup.textContent = "Grant and back up";
   } else {
     const good = lastRun?.ok;
-    el.dot.className = `dot ${good ? "ok" : lastRun ? "err" : ""}`;
-    el.statusText.textContent = lastRun
-      ? (good ? `Last backup ${formatWhen(lastRun.at)}` : "Last run failed")
-      : "Nothing backed up yet";
+    // Overdue outranks the usual status: a backup that quietly stopped three days
+    // ago is the one thing worth interrupting for.
+    const old = await staleness();
+    el.dot.className = `dot ${old.stale ? "warn" : good ? "ok" : lastRun ? "err" : ""}`;
+    el.statusText.textContent = old.stale
+      ? `No backup for ${old.days} days`
+      : lastRun
+        ? (good ? `Last backup ${formatWhen(lastRun.at)}` : "Last run failed")
+        : "Nothing backed up yet";
     const parts = [];
+    if (old.stale) parts.push(`last one ${formatWhen(old.at)}, anything past ${STALE_DAYS} days is flagged`);
     if (lastRun && !good) parts.push(lastRun.error);
     if (alarm) parts.push(`next run ${formatWhen(alarm.scheduledTime)}`);
     if (indexed) parts.push(`${n(indexed)} pages indexed`);

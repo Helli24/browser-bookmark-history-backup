@@ -264,7 +264,9 @@ export async function runBackup(reason = "alarm") {
       at: Date.now(), day, ok: true, reason,
       written: res.written + flushed, deleted: res.deleted, info
     };
-    await chrome.storage.local.set({ lastRun, historyCoveredThrough: day });
+    // lastOkAt is kept apart from lastRun, which a later failure overwrites. The
+    // question "when did this last actually work" has to survive that.
+    await chrome.storage.local.set({ lastRun, lastOkAt: lastRun.at, historyCoveredThrough: day });
     await badge("");
     await record({
       kind: reason, ok: true, files: lastRun.written,
@@ -284,6 +286,23 @@ export async function runBackup(reason = "alarm") {
     await record({ kind: KINDS.queued, ok: false, note: e.message });
     return { ok: false, lastRun };
   }
+}
+
+// A backup tool fails quietly: the alarm does not fire, the browser stays closed,
+// an error repeats - and nobody notices until the day the files are needed. Three
+// days is late enough not to nag over a long weekend away from the machine, and
+// early enough that a fortnight of silence cannot pass unseen.
+export const STALE_DAYS = 3;
+
+// Days since the last run that actually wrote something, or null if there has
+// never been one. Reading storage only - no database, nothing to wait for.
+export async function staleness() {
+  const { lastOkAt, lastRun } = await chrome.storage.local.get(["lastOkAt", "lastRun"]);
+  // Installs from before this field existed still have a successful lastRun.
+  const at = lastOkAt || (lastRun?.ok ? lastRun.at : null);
+  if (!at) return { at: null, days: null, stale: false, never: true };
+  const days = Math.floor((Date.now() - at) / 864e5);
+  return { at, days, stale: days >= STALE_DAYS, never: false };
 }
 
 // Moves whatever a schema migration parked in storage into the log. Called before

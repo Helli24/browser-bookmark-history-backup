@@ -1,7 +1,8 @@
 // Options page: target folder, search, what to back up, schedule, maintenance,
 // statistics and the activity log - in that order on screen.
 import {
-  getSettings, setSettings, importIndex, backfillAll, record, flushMigrationNotes, DEFAULTS
+  getSettings, setSettings, importIndex, backfillAll, record, flushMigrationNotes,
+  staleness, STALE_DAYS, DEFAULTS
 } from "./lib/run.js";
 import { getLog, KINDS } from "./lib/log.js";
 import {
@@ -16,6 +17,8 @@ import {
 const $ = id => document.getElementById(id);
 const el = {
   permBanner: $("permBanner"), permBannerText: $("permBannerText"), btnRegrant: $("btnRegrant"),
+  staleBanner: $("staleBanner"), staleTitle: $("staleTitle"), staleText: $("staleText"),
+  btnStaleBackup: $("btnStaleBackup"),
   folderName: $("folderName"), folderNote: $("folderNote"), folderMsg: $("folderMsg"),
   permBadge: $("permBadge"), btnFolder: $("btnFolder"),
   cbBookmarks: $("cbBookmarks"), cbHistory: $("cbHistory"), cbIndex: $("cbIndex"),
@@ -85,6 +88,22 @@ async function render() {
 
   const alarm = await chrome.alarms.get("daily");
   el.nextRun.textContent = alarm ? `next run: ${formatWhen(alarm.scheduledTime)}` : "";
+
+  // The point of the whole thing is that it runs without being watched, so the
+  // one thing that must never go unnoticed is that it stopped.
+  const old = await staleness();
+  el.staleBanner.hidden = !(old.stale || (old.never && dir));
+  if (!el.staleBanner.hidden) {
+    el.staleTitle.textContent = old.never
+      ? "Nothing has been backed up yet"
+      : `No backup for ${old.days} days`;
+    el.staleText.textContent = old.never
+      ? "The folder is set, but no run has finished yet."
+      : `The last one that wrote anything was ${formatWhen(old.at)}. ` +
+        (needsClick
+          ? "The folder permission is gone since the browser restarted."
+          : `Anything past ${STALE_DAYS} days is flagged here. The activity log below says what happened.`);
+  }
 
   const parts = [`${n(await countPages())} pages indexed`, `${n(await countVisits())} visits recorded`];
   if (lastRun) {
@@ -232,6 +251,21 @@ async function doBackup() {
 
 el.btnBackup.addEventListener("click", doBackup);
 
+// The banner sits above the fold precisely so nobody has to scroll for the fix.
+// A lapsed permission has to be asked for first, and only a click may do that.
+el.btnStaleBackup.addEventListener("click", async () => {
+  el.btnStaleBackup.disabled = true;
+  try {
+    const { dir, state } = await permissionState();
+    if (dir && state !== "granted") await regrantPermission();
+    await doBackup();
+  } catch (e) {
+    setMsg(el.backupMsg, `Error: ${e.message}`, "err");
+  } finally {
+    el.btnStaleBackup.disabled = false;
+  }
+});
+
 /* ---------------- Search ---------------- */
 
 let searchTimer = null;
@@ -312,9 +346,28 @@ async function doSearch() {
   const dateField = el.dateField.value;
   const { hits, total } = await searchPages(q, 300, { from, to, dateField, sortBy, newestFirst });
   const end = newestFirst ? "newest" : "oldest";
-  el.searchInfo.textContent = total
-    ? `${n(total)} matches${total > hits.length ? `, showing the ${hits.length} ${end}` : ""}`
-    : "No matches.";
+  el.searchInfo.replaceChildren(document.createTextNode(total
+    ? `${n(total)} ${total === 1 ? "match" : "matches"}` +
+      (total > hits.length ? `, showing the ${hits.length} ${end}` : "")
+    : "No matches."));
+
+  // An exact search that finds nothing is usually one character of query string
+  // away from the page that is there. Say so, and offer the wider search - this
+  // is where the context menu lands, and a bare "No matches" would be wrong twice.
+  const quoted = q.length > 2 && q.startsWith('"') && q.endsWith('"');
+  if (!total && quoted) {
+    const loose = q.slice(1, -1).trim();
+    const alt = await searchPages(loose, 1, { from, to, dateField });
+    if (alt.total) {
+      el.searchInfo.append(` This exact address is not in the index, but ${n(alt.total)} `,
+                           alt.total === 1 ? "page contains it. " : "pages contain it. ");
+      const btn = document.createElement("button");
+      btn.type = "button";
+      btn.textContent = "Search without quotes";
+      btn.addEventListener("click", () => { el.search.value = loose; doSearch(); });
+      el.searchInfo.append(btn);
+    }
+  }
 
   el.table.hidden = hits.length === 0;
   el.hits.replaceChildren(...hits.map(r => {
@@ -635,6 +688,16 @@ const startOfDay = t => {
 };
 
 /* ---------------- Start ---------------- */
+
+// ?q= comes from the context menu, already quoted for an exact match. Scrolled to
+// and focused, because the page was opened for this one question.
+const asked = new URLSearchParams(location.search).get("q");
+if (asked) {
+  el.search.value = asked;
+  el.search.scrollIntoView({ block: "center" });
+  el.search.focus();
+  el.search.select();
+}
 
 await render();
 await doSearch();

@@ -25,6 +25,8 @@
       getVisits: ({ url }) => Promise.resolve(FAKE_VISITS[url] || [])
     },
     alarms: { create: () => {}, get: () => Promise.resolve(null), onAlarm: { addListener(){} } },
+    contextMenus: { create(){}, removeAll(cb){ cb && cb(); }, onClicked: { addListener(){} } },
+    tabs: { create: () => Promise.resolve() },
     action: { setBadgeText: () => Promise.resolve(), setBadgeBackgroundColor: () => Promise.resolve() },
     runtime: { onMessage: { addListener(){} }, onInstalled: { addListener(){} }, onStartup: { addListener(){} } }
   };
@@ -273,6 +275,25 @@ check("stats: host keeps its own page count", st.hosts[0].pages, 2);
 check("stats: the range spans the quiet days in between",
       D.bucketRange(C.dayNumber(at(10, 9)), C.dayNumber(at(12, 8)), 1, C.dayNumber(at(12, 8))).length, 3);
 await D.clearVisits();
+
+// ---- overdue detection ----
+// The one failure this tool has to notice about itself.
+await chrome.storage.local.remove(["lastOkAt", "lastRun"]);
+check("stale: nothing recorded yet", (await R.staleness()).never, true);
+await chrome.storage.local.set({ lastOkAt: Date.now() - 1 * 864e5 });
+check("stale: a day old is fine", (await R.staleness()).stale, false);
+await chrome.storage.local.set({ lastOkAt: Date.now() - (R.STALE_DAYS + 1) * 864e5 });
+const overdue = await R.staleness();
+check("stale: past the window is flagged", overdue.stale, true);
+check("stale: counts the days", overdue.days, R.STALE_DAYS + 1);
+// A failed run must not make an old success look recent.
+await chrome.storage.local.set({ lastRun: { at: Date.now(), ok: false, error: "no folder" } });
+check("stale: a failed run does not count as a backup", (await R.staleness()).stale, true);
+// Installs from before lastOkAt existed still have to be judged correctly.
+await chrome.storage.local.remove("lastOkAt");
+await chrome.storage.local.set({ lastRun: { at: Date.now(), ok: true } });
+check("stale: falls back to an older install's lastRun", (await R.staleness()).stale, false);
+await chrome.storage.local.remove(["lastOkAt", "lastRun"]);
 
 // ---- run log ----
 const L = mods[base + "lib/log.js"];

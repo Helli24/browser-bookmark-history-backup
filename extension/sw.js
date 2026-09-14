@@ -1,5 +1,5 @@
 // Background service worker: schedule, catch-up for missed runs, UI requests.
-import { getSettings, setSettings, runBackup, badge } from "./lib/run.js";
+import { getSettings, setSettings, runBackup, badge, staleness } from "./lib/run.js";
 import { searchPages, countPages, loadDirHandle } from "./lib/db.js";
 import { dateKey } from "./lib/collect.js";
 
@@ -31,17 +31,51 @@ async function catchUpIfDue(reason) {
   if (Date.now() >= dueAt.getTime()) await runBackup(reason);
 }
 
+// Anything that wants attention shows the same mark; the popup says which it is.
+// Checked wherever the worker happens to wake up, because the case worth catching
+// - the schedule silently not running at all - is exactly the one where nothing
+// else would set it.
 async function restoreBadge() {
   const { queue = [] } = await chrome.storage.local.get("queue");
-  if (queue.length) await badge("!");
+  if (queue.length) return badge("!");
+  const { stale } = await staleness();
+  await badge(stale ? "!" : "");
 }
 
+/* ---------------- Context menu ---------------- */
+
+const MENU = "lookup";
+
+// Opens the settings page with the address already in the search box, quoted, so
+// the answer is about that one page and not the thousands below it. Works on a
+// link too: the question is often "have I been there" before clicking, not after.
+function installMenu() {
+  chrome.contextMenus.removeAll(() => {
+    chrome.contextMenus.create({
+      id: MENU,
+      title: "When was I first here?",
+      contexts: ["page", "link"]
+    });
+  });
+}
+
+chrome.contextMenus.onClicked.addListener(async info => {
+  if (info.menuItemId !== MENU) return;
+  const url = info.linkUrl || info.pageUrl;
+  if (!url) return;
+  await chrome.tabs.create({
+    url: chrome.runtime.getURL(`options.html?q=${encodeURIComponent(`"${url}"`)}`)
+  });
+});
+
 chrome.runtime.onInstalled.addListener(async () => {
+  installMenu();
   await schedule();
   await restoreBadge();
 });
 
 chrome.runtime.onStartup.addListener(async () => {
+  installMenu();                        // menus do not survive a browser restart
   await schedule();
   await restoreBadge();
   await catchUpIfDue("catch-up");
@@ -51,6 +85,7 @@ chrome.alarms.onAlarm.addListener(async a => {
   if (a.name !== ALARM) return;
   await runBackup("schedule");
   await schedule();                     // recompute so the wall-clock time survives DST
+  await restoreBadge();
 });
 
 /* ---------------- Requests from popup and options page ---------------- */

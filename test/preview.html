@@ -3,6 +3,12 @@
   // Throwaway harness: renders the real options page against a stubbed browser
   // API so the layout can be looked at outside an extension. Not shipped.
   const S = { settings: {}, runLog: [] };
+  // ?seed={"lastOkAt":...} fills storage before the page's own code reads it, so
+  // states that only show up after days of not running can be looked at now.
+  try {
+    const seed = new URLSearchParams(location.search).get("seed");
+    if (seed) Object.assign(S, JSON.parse(seed));
+  } catch { /* a broken seed is not worth failing the harness over */ }
   window.chrome = {
     storage: { local: {
       get: k => Promise.resolve(typeof k === "string" ? { [k]: S[k] } :
@@ -12,7 +18,9 @@
     }},
     alarms: { create: () => {}, get: () => Promise.resolve(null) },
     action: { setBadgeText: () => Promise.resolve(), setBadgeBackgroundColor: () => Promise.resolve() },
-    runtime: { onMessage: { addListener() {} } }
+    runtime: { onMessage: { addListener() {} }, getURL: p => p },
+    contextMenus: { create() {}, removeAll(cb) { cb && cb(); }, onClicked: { addListener() {} } },
+    tabs: { create: () => Promise.resolve() }
   };
 </script>
 <script type="module">
