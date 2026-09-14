@@ -131,15 +131,31 @@
   .statsbox .row button.on { border-color: var(--accent); color: var(--text); }
   /* Bars are plain divs - a chart library would be the only dependency in the
      whole extension, and this one is a row of rectangles. */
-  .chart {
-    display: flex; align-items: flex-end; gap: 1px; height: 120px;
-    padding: 0 2px; background: var(--card); border: 1px solid var(--border);
+  .chartwrap { display: flex; gap: 8px; align-items: stretch; }
+  .yaxis { position: relative; width: 46px; flex: none; }
+  .yaxis span {
+    position: absolute; right: 0; font-size: 11px; color: var(--muted);
+    font-variant-numeric: tabular-nums; line-height: 1;
+  }
+  .yaxis span.mid { transform: translateY(-50%); }
+  .yaxis span.bottom { transform: translateY(-100%); }
+  .plot {
+    position: relative; flex: 1; min-width: 0; height: 240px;
+    background: var(--card); border: 1px solid var(--border);
     border-radius: 7px; overflow: hidden;
   }
+  .plot .line { position: absolute; left: 0; right: 0; border-top: 1px dashed var(--border); }
+  .chart { position: absolute; inset: 0; display: flex; align-items: flex-end; gap: 1px; padding: 0 2px; }
   .chart .bar { flex: 1 1 0; min-width: 1px; background: var(--accent); opacity: .75; }
   .chart .bar:hover { opacity: 1; }
   .chart .bar.empty { background: var(--border); opacity: .5; min-height: 1px; }
-  .chart-axis { justify-content: space-between; font-size: 12px; }
+  .xaxis {
+    position: relative; height: 15px; margin: 4px 0 0 54px;
+    font-size: 11px; color: var(--muted); font-variant-numeric: tabular-nums;
+  }
+  .xaxis span { position: absolute; transform: translateX(-50%); white-space: nowrap; }
+  .xaxis span.first { transform: none; }
+  .xaxis span.last { transform: translateX(-100%); }
   .log { width: 100%; border-collapse: collapse; font-size: 12.5px; font-variant-numeric: tabular-nums; }
   .log td { padding: 4px 8px; border-bottom: 1px solid var(--border); white-space: nowrap; vertical-align: top; }
   .log tr:last-child td { border-bottom: none; }
@@ -351,8 +367,11 @@
         <button type="button" data-series="fresh">New pages</button>
       </div>
 
-      <div class="chart" id="chart"></div>
-      <div class="row muted chart-axis"><span id="chartFrom"></span><span id="chartTo"></span></div>
+      <div class="chartwrap">
+        <div class="yaxis" id="yAxis"></div>
+        <div class="plot" id="plot"><div class="chart" id="chart"></div></div>
+      </div>
+      <div class="xaxis" id="xAxis"></div>
 
       <h3>Top sites</h3>
       <div class="scroll"><table id="topTable">

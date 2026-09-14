@@ -31,7 +31,7 @@ const el = {
   logBox: $("logBox"), logCount: $("logCount"), logRows: $("logRows"),
   statsBox: $("statsBox"), statsHint: $("statsHint"), statsHead: $("statsHead"),
   statsWindows: $("statsWindows"), statsSeries: $("statsSeries"),
-  chart: $("chart"), chartFrom: $("chartFrom"), chartTo: $("chartTo"),
+  chart: $("chart"), plot: $("plot"), yAxis: $("yAxis"), xAxis: $("xAxis"),
   topHosts: $("topHosts")
 };
 
@@ -540,7 +540,8 @@ async function renderStats() {
       ? "Nothing in this window."
       : "No visits recorded yet – run one backup and they will be here.";
     el.chart.replaceChildren();
-    el.chartFrom.textContent = el.chartTo.textContent = "";
+    el.yAxis.replaceChildren();
+    el.xAxis.replaceChildren();
     el.topHosts.replaceChildren();
     return;
   }
@@ -561,7 +562,10 @@ async function renderStats() {
     busiest[statsSeries] ? `busiest ${per}: ${busiest.key} with ${n(busiest[statsSeries])}` : ""
   ].filter(Boolean).join(" · ");
 
-  const top = Math.max(...bars.map(b => b[statsSeries]), 1);
+  // Round the top of the scale up to something readable, so the axis reads 150
+  // rather than 147 and the halfway line lands on a whole number too.
+  const peak = Math.max(...bars.map(b => b[statsSeries]), 1);
+  const top = niceCeiling(peak);
   const label = { visits: "visits", pages: "pages", fresh: "new pages" }[statsSeries];
   el.chart.replaceChildren(...bars.map(b => {
     const div = document.createElement("div");
@@ -571,8 +575,37 @@ async function renderStats() {
     div.title = `${b.key}${stats.size === 7 ? " (week)" : ""}: ${n(value)} ${label}`;
     return div;
   }));
-  el.chartFrom.textContent = bars[0].key;
-  el.chartTo.textContent = bars[bars.length - 1].key;
+
+  el.yAxis.replaceChildren(...[1, 0.5, 0].map(f => {
+    const s = document.createElement("span");
+    s.textContent = n(Math.round(top * f));
+    s.style.top = `${(1 - f) * 100}%`;
+    s.className = f === 1 ? "" : f === 0 ? "bottom" : "mid";
+    return s;
+  }));
+
+  // Drawn before the bars so they sit behind them.
+  for (const old of el.plot.querySelectorAll(".line")) old.remove();
+  for (const f of [1, 0.5]) {
+    const line = document.createElement("div");
+    line.className = "line";
+    line.style.top = `${(1 - f) * 100}%`;
+    el.plot.insertBefore(line, el.chart);
+  }
+
+  // Six labels at most, or one per bar while they still fit - evenly spaced
+  // sampling of eight bars leaves a visible gap where the rounding drops one.
+  const wanted = bars.length <= 8 ? bars.length : 6;
+  const step = bars.length > 1 ? (bars.length - 1) / Math.max(wanted - 1, 1) : 1;
+  const marks = [...new Set(Array.from({ length: wanted }, (_, i) => Math.round(i * step)))];
+  el.xAxis.replaceChildren(...marks.map(i => {
+    const s = document.createElement("span");
+    s.textContent = bars[i].key.slice(5);   // MM-DD; the year is in the line above
+    s.style.left = `${(i + 0.5) / bars.length * 100}%`;
+    if (i === 0) { s.className = "first"; s.style.left = "0"; }
+    if (i === bars.length - 1) { s.className = "last"; s.style.left = "100%"; }
+    return s;
+  }));
 
   el.topHosts.replaceChildren(...stats.hosts.slice(0, 25).map(h => {
     const tr = document.createElement("tr");
@@ -584,6 +617,16 @@ async function renderStats() {
     }
     return tr;
   }));
+}
+
+// The next round number at or above n: 1, 2 or 5 times a power of ten. Halving it
+// has to stay round as well, since the axis has a line in the middle.
+function niceCeiling(v) {
+  const pow = 10 ** Math.floor(Math.log10(v));
+  for (const m of [1, 2, 5, 10]) {
+    if (v <= m * pow) return m * pow;
+  }
+  return 10 * pow;
 }
 
 const startOfDay = t => {

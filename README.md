@@ -162,8 +162,11 @@ open, and each window is counted once.
 
 One window switch applies to everything in the box — `7 · 30 · 90 · 365 days ·
 everything` — so the chart and the ranking underneath can never disagree about
-the period they describe. The bars show **visits**, **pages** (distinct URLs) or
-**new pages** (first seen in that bucket). Past 90 days a bar is a week rather
+the period they describe. The scale on the left rounds up to a round number, dates
+run along the bottom, and hovering a bar gives its exact figure. The bars show **visits**, **pages** or **new pages**. A *visit* is one opening of
+one page, a *page* is one URL counted once however often it was opened in that
+bucket, and *new pages* are the ones seen for the first time there. Visits
+climbing while pages stay flat means the same few pages over and over. Past 90 days a bar is a week rather
 than a day; a year of daily bars would be under three pixels each.
 
 Underneath, the 25 most visited sites in the same window, by host with `www.`
