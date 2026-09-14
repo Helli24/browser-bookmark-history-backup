@@ -89,6 +89,10 @@ const from = Date.UTC(2026, 8, 13, 0, 0, 0), to = Date.UTC(2026, 8, 14, 0, 0, 0)
 const h = await C.collectHistory(from, to);
 check("history: visits in window", h.visits.length, 3);
 check("history: index rows", h.index.length, 2);
+// The badge in the search must never undercut the timestamps behind it:
+// visitCount is 42 for this URL, and getVisits hands over 3 rows.
+check("index count is never below the visits held",
+      h.index.every(r => r.count >= h.allVisits.filter(v => v.url === r.url).length), true);
 check("history: first visit backdated 200d", new Date(h.index[0].first).toISOString(), "2026-02-25T10:00:00.000Z");
 
 const csv = C.indexToCsv(h.index);

@@ -141,7 +141,10 @@ export async function collectHistory(startTime, endTime) {
       title: it.title || "",
       first,
       last: ms(it.lastVisitTime || first),
-      count: it.visitCount || 1
+      // visitCount leaves out visits getVisits() still hands over - redirects and
+      // the like - so it can be the smaller of the two. Taking the larger keeps the
+      // count in the search from ever being below the timestamps behind it.
+      count: Math.max(it.visitCount || 0, raw.length, 1)
     });
   }
 
@@ -232,7 +235,7 @@ export async function collectAllHistory({ days = 120, onProgress = () => {} } = 
       title: m.title,
       first,
       last: ms(m.last || first),
-      count: m.count || 1
+      count: Math.max(m.count || 0, raw.length, 1)
     });
 
     if (++done % 200 === 0 || done === meta.size) {
