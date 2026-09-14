@@ -185,6 +185,36 @@
   </section>
 
   <section>
+    <h2>Search your history</h2>
+    <div class="row">
+      <input type="search" id="search" placeholder="e.g. github.com/torvalds/linux  ·  matches the whole URL including the path" autocomplete="off">
+    </div>
+    <!-- Deliberately no <label> around the fields: it would put the words into the
+         click target, and clicking "from" focuses a date field without visibly
+         doing anything. Only the controls themselves react. -->
+    <div class="row filters">
+      <select id="dateField">
+        <option value="first">First visit</option>
+        <option value="last">Last visit</option>
+      </select>
+      <span>from</span>
+      <input type="date" id="dateFrom" aria-label="From date">
+      <span>until</span>
+      <input type="date" id="dateTo" aria-label="Until date">
+      <button type="button" id="btnClearDates" hidden>Clear dates</button>
+    </div>
+    <div class="row muted" id="searchInfo" style="font-size:12.5px"></div>
+    <div class="scroll"><table id="table" hidden>
+      <thead><tr>
+        <th><button type="button" class="sort" data-field="first">First visit <span></span></button></th>
+        <th><button type="button" class="sort" data-field="last">Last visit <span></span></button></th>
+        <th class="num">Visits</th><th>Page</th>
+      </tr></thead>
+      <tbody id="hits"></tbody>
+    </table></div>
+  </section>
+
+  <section>
     <h2>What gets backed up</h2>
     <div class="toggle">
       <input type="checkbox" id="cbBookmarks">
@@ -264,67 +294,6 @@
   </section>
 
   <section>
-    <h2>Search your history</h2>
-    <div class="row">
-      <input type="search" id="search" placeholder="e.g. github.com/torvalds/linux  ·  matches the whole URL including the path" autocomplete="off">
-    </div>
-    <!-- Deliberately no <label> around the fields: it would put the words into the
-         click target, and clicking "from" focuses a date field without visibly
-         doing anything. Only the controls themselves react. -->
-    <div class="row filters">
-      <select id="dateField">
-        <option value="first">First visit</option>
-        <option value="last">Last visit</option>
-      </select>
-      <span>from</span>
-      <input type="date" id="dateFrom" aria-label="From date">
-      <span>until</span>
-      <input type="date" id="dateTo" aria-label="Until date">
-      <button type="button" id="btnClearDates" hidden>Clear dates</button>
-    </div>
-    <div class="row muted" id="searchInfo" style="font-size:12.5px"></div>
-    <div class="scroll"><table id="table" hidden>
-      <thead><tr>
-        <th><button type="button" class="sort" data-field="first">First visit <span></span></button></th>
-        <th><button type="button" class="sort" data-field="last">Last visit <span></span></button></th>
-        <th class="num">Visits</th><th>Page</th>
-      </tr></thead>
-      <tbody id="hits"></tbody>
-    </table></div>
-  </section>
-
-  <section>
-    <details class="logbox statsbox" id="statsBox">
-      <summary>Statistics <span class="count" id="statsHint">— counted when you open this</span></summary>
-
-      <div class="row" id="statsWindows">
-        <button type="button" data-days="7">7 days</button>
-        <button type="button" data-days="30" class="on">30 days</button>
-        <button type="button" data-days="90">90 days</button>
-        <button type="button" data-days="365">365 days</button>
-        <button type="button" data-days="0">Everything</button>
-      </div>
-
-      <div class="row muted" id="statsHead" style="font-size:12.5px"></div>
-
-      <div class="row" id="statsSeries">
-        <button type="button" data-series="visits" class="on">Visits</button>
-        <button type="button" data-series="pages">Pages</button>
-        <button type="button" data-series="fresh">New pages</button>
-      </div>
-
-      <div class="chart" id="chart"></div>
-      <div class="row muted chart-axis"><span id="chartFrom"></span><span id="chartTo"></span></div>
-
-      <h3>Top sites</h3>
-      <div class="scroll"><table id="topTable">
-        <thead><tr><th>Site</th><th class="num">Visits</th><th class="num">Pages</th></tr></thead>
-        <tbody id="topHosts"></tbody>
-      </table></div>
-    </details>
-  </section>
-
-  <section>
     <h2>Maintenance</h2>
     <div class="row muted" style="font-size:12.5px;margin-bottom:4px">
       Two one-off jobs, pulling from two different places.
@@ -360,6 +329,37 @@
     <div class="row" style="margin-top:16px;border-top:1px solid var(--border);padding-top:16px">
       <div class="grow muted" id="statusLine" style="font-size:12.5px"></div>
     </div>
+  </section>
+
+  <section>
+    <details class="logbox statsbox" id="statsBox">
+      <summary>Statistics <span class="count" id="statsHint">— counted when you open this</span></summary>
+
+      <div class="row" id="statsWindows">
+        <button type="button" data-days="7">7 days</button>
+        <button type="button" data-days="30" class="on">30 days</button>
+        <button type="button" data-days="90">90 days</button>
+        <button type="button" data-days="365">365 days</button>
+        <button type="button" data-days="0">Everything</button>
+      </div>
+
+      <div class="row muted" id="statsHead" style="font-size:12.5px"></div>
+
+      <div class="row" id="statsSeries">
+        <button type="button" data-series="visits" class="on">Visits</button>
+        <button type="button" data-series="pages">Pages</button>
+        <button type="button" data-series="fresh">New pages</button>
+      </div>
+
+      <div class="chart" id="chart"></div>
+      <div class="row muted chart-axis"><span id="chartFrom"></span><span id="chartTo"></span></div>
+
+      <h3>Top sites</h3>
+      <div class="scroll"><table id="topTable">
+        <thead><tr><th>Site</th><th class="num">Visits</th><th class="num">Pages</th></tr></thead>
+        <tbody id="topHosts"></tbody>
+      </table></div>
+    </details>
   </section>
 
   <section>

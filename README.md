@@ -155,9 +155,9 @@ expanded row says so rather than quietly showing fewer.
 
 ## Statistics
 
-Between the search and the maintenance jobs, collapsed by default — and that is
-not just tidiness: nothing is counted until you open it, so the page itself loads
-exactly as fast as it would without it. The result is kept while the page stays
+Second to last on the settings page, collapsed by default — and that is not just
+tidiness: nothing is counted until you open it, so the page itself loads exactly
+as fast as it would without it. The result is kept while the page stays
 open, and each window is counted once.
 
 One window switch applies to everything in the box — `7 · 30 · 90 · 365 days ·

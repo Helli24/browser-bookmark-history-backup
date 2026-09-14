@@ -1,4 +1,5 @@
-// Options page: target folder, what to back up, schedule, search, maintenance.
+// Options page: target folder, search, what to back up, schedule, maintenance,
+// statistics and the activity log - in that order on screen.
 import {
   getSettings, setSettings, importIndex, backfillAll, record, flushMigrationNotes, DEFAULTS
 } from "./lib/run.js";
