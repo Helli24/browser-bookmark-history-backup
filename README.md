@@ -139,9 +139,9 @@ are ignored:
 | `jira` | hits in the host, in the path, or in the title |
 | `"facebook.com"` | that page and nothing below it — see below |
 
-Right-clicking a page or a link offers **"Have I been here before?"**, which opens
-the settings page with that address already quoted in the search box — the
-question usually turns up while browsing, not while in the settings.
+Right-clicking a page or a link puts **"Have I been here before?"** in the context
+menu. It opens the settings page with that address already quoted in the search
+box — the question usually turns up while browsing, not while in the settings.
 
 The index only knows what a backup has written, so a page opened since last night
 is not in it yet, and answering "no matches" there would be a lie about somewhere
