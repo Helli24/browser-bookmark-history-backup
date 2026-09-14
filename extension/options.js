@@ -102,7 +102,18 @@ el.btnFolder.addEventListener("click", async () => {
             `Existing backup found and adopted: ${n(r.total)} pages, ${n(r.visitsTotal)} visits.`,
             "ok");
         }
-      } catch { /* no index in there yet - the normal case for a fresh folder */ }
+      } catch (e) {
+        // NotFoundError means there is simply no index here - a fresh folder.
+        // Anything else means something IS there and we could not read it, so
+        // stop: writing now would overwrite data we failed to rescue.
+        if (e?.name !== "NotFoundError") {
+          setMsg(el.importMsg,
+            `There is an index in this folder but it could not be read: ${e.message} — ` +
+            `nothing has been written. Check the folder, then use Import below.`, "err");
+          setMsg(el.backupMsg, "First backup skipped to avoid overwriting existing data.", "err");
+          return;
+        }
+      }
     }
 
     // Write straight away so the folders show up and the choice is visibly confirmed.
