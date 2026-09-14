@@ -31,7 +31,7 @@ want to see at a glance which folder is configured.
 ## What ends up in the folder
 
 ```
-D:\Chrome Backup\
+F:\Chrome_Backup\
 ├── Bookmarks\
 │   ├── bookmarks-2026-09-13.json     full tree, easy to diff
 │   └── bookmarks-2026-09-13.html     Netscape format, importable into Chrome
@@ -81,17 +81,19 @@ Chrome keeps counting visits after it has discarded the underlying timestamps, s
 its total can exceed the number of timestamps anyone still has. When that happens
 the expanded row says so rather than quietly showing fewer.
 
-## Run the recovery once
+## Import from Chrome once
 
-Settings → Maintenance → **Recover everything Chrome still remembers**.
+Settings → Maintenance → **Import from Chrome's history**.
 
-Chrome's history is a rolling ~90-day window. Everything in it right now can still
-be rescued; in three months it is gone for good. The recovery makes one pass over
-that whole window, writes a daily log for every day it covers, and fills the index
-with the matching timestamps. It takes a minute or two and is worth doing on the
-day you install.
+Chrome's history is a rolling ~90-day window; what is in it today is gone in three
+months. This makes one pass over the whole window, writes a daily log for every day
+it covers, and fills the index with the matching timestamps. A minute or two, and
+worth doing on the day you install.
 
 Afterwards the daily run takes over and only looks at the last few days.
+
+The other button in that section, **Restore from your backup folder**, goes the
+opposite way — see [Restoring](#restoring).
 
 ## The one caveat
 
@@ -111,9 +113,14 @@ because it needs setup on every machine.
 **Bookmarks:** `chrome://bookmarks` → ⋮ menu → *Import bookmarks* → pick the
 `.html` from `Bookmarks\`.
 
-**The index after a reinstall:** Settings → *Import the index from the backup
-folder*. Reads `Index\page-index.jsonl` and every `Indexisits-<year>.jsonl`
+**The index after a reinstall:** Settings → Maintenance → *Restore from your backup
+folder*. Reads `Index\page-index.jsonl` and every `Index\visits-<year>.jsonl`
 back in, so both the summary and the individual timestamps survive.
+
+You rarely need to press it: pointing the extension at a folder that already holds
+a backup restores it automatically, before anything is written. That order matters —
+the first backup would otherwise export the empty database straight over the files
+it was supposed to read.
 
 ## Layout
 

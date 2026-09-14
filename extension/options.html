@@ -232,27 +232,35 @@
 
   <section>
     <h2>Maintenance</h2>
-    <div class="row">
+    <div class="row muted" style="font-size:12.5px;margin-bottom:4px">
+      Two one-off jobs, pulling from two different places.
+    </div>
+
+    <div class="row" style="margin-top:12px">
       <div class="grow">
-        <strong>Recover everything Chrome still remembers</strong>
+        <strong>Import from Chrome's history</strong>
         <div class="muted" style="font-size:12.5px">
-          One-off. Writes a daily log for every day Chrome still covers and fills the index
-          with those timestamps. Chrome discards visits after about 90 days — whatever is in
-          there today is gone in three months, so this is worth running once, now.
+          Chrome keeps roughly 90 days and then throws the rest away. This reads everything
+          it still holds in one pass — a daily log for every day covered, plus those
+          timestamps in the index. Worth running once, now: what is in there today is gone
+          in three months.
         </div>
       </div>
-      <button id="btnBackfill">Recover</button>
+      <button id="btnBackfill">Import</button>
     </div>
     <div id="backfillMsg" class="msg"></div>
 
     <div class="row" style="margin-top:16px;border-top:1px solid var(--border);padding-top:16px">
       <div class="grow">
-        <strong>Import the index from the backup folder</strong>
+        <strong>Restore from your backup folder</strong>
         <div class="muted" style="font-size:12.5px">
-          After reinstalling Chrome or the extension: reads <code>Index\page-index.jsonl</code> back in.
+          The other direction: reads your own <code>Index\page-index.jsonl</code> and every
+          <code>visits-&lt;year&gt;.jsonl</code> back into the database. For after a reinstall of
+          Chrome or the extension — though pointing the extension at a folder that already
+          holds a backup does this on its own.
         </div>
       </div>
-      <button id="btnImport">Import</button>
+      <button id="btnImport">Restore</button>
     </div>
     <div id="importMsg" class="msg"></div>
     <div class="row" style="margin-top:16px;border-top:1px solid var(--border);padding-top:16px">

@@ -99,7 +99,7 @@ el.btnFolder.addEventListener("click", async () => {
         const r = await importIndex(dir);
         if (r.read) {
           setMsg(el.folderMsg,
-            `This folder already held a backup, and it has been adopted: ` +
+            `Found an existing backup in this folder and restored it: ` +
             `${n(r.total)} pages and ${n(r.visitsTotal)} visits are back in the database.`,
             "ok");
         }
@@ -111,7 +111,7 @@ el.btnFolder.addEventListener("click", async () => {
           setMsg(el.folderMsg,
             `There is an index in this folder but it could not be read: ${e.message} — ` +
             `nothing has been written, so the existing data is untouched. ` +
-            `Check the folder, then use Import under Maintenance.`, "err");
+            `Check the folder, then use Restore under Maintenance.`, "err");
           return;
         }
       }
@@ -355,8 +355,8 @@ el.btnImport.addEventListener("click", async () => {
 
     const r = await importIndex(dir);
     setMsg(el.importMsg,
-      `Read ${n(r.read)} index rows (${n(r.added)} new) and ${n(r.visitsRead)} visits – ` +
-      `the database now holds ${n(r.total)} pages and ${n(r.visitsTotal)} visits.`,
+      `Restored ${n(r.read)} index rows (${n(r.added)} new to this database) and ` +
+      `${n(r.visitsRead)} visits – it now holds ${n(r.total)} pages and ${n(r.visitsTotal)} visits.`,
       "ok");
     await doSearch();
   } catch (e) {
