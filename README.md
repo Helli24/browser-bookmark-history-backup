@@ -31,9 +31,12 @@ target folder, or they will overwrite each other's index files.
 No Web Store, no account, no installer — you point the browser at a folder.
 
 1. Download the ZIP from [Releases](../../releases), or clone this repository
-2. **Extract it somewhere permanent** — not your Downloads folder. The browser
-   reads the files from wherever you put them, every day, so that folder has to
-   stay put.
+2. **Extract it somewhere permanent** — not your Downloads folder. An unpacked
+   extension is not copied into the browser; the browser just remembers the path
+   and reads the files back from there every time the service worker restarts.
+   Delete or move the folder and the extension stops working. (Your data would
+   survive: it hangs off the extension ID, which is pinned in the manifest, so
+   putting the folder back anywhere and loading it again restores everything.)
 3. Open `chrome://extensions` — in Edge, `edge://extensions`
 4. Turn on **Developer mode** (top right)
 5. **Load unpacked** → select the extracted `bookmark-history-backup` folder (the
@@ -44,7 +47,9 @@ The browser will warn that the extension can read your browsing history. It can 
 that is the entire job. Nothing leaves your machine.
 
 **To update:** download the new ZIP, extract it over the same folder, then press
-the reload arrow on the extension's card. Do **not** press Remove and add it
+the reload arrow on the extension's card. `VERSION.txt` in the folder says which
+version you extracted — if it disagrees with the version on the extension's card,
+the reload was missed. Do **not** press Remove and add it
 again: removing deletes the extension's storage, which is where your settings and
 the whole page index live. Overwrite-and-reload keeps everything.
 
