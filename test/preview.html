@@ -1,0 +1,24 @@
+<!DOCTYPE html><meta charset="utf-8"><title>preview</title>
+<script>
+  // Throwaway harness: renders the real options page against a stubbed browser
+  // API so the layout can be looked at outside an extension. Not shipped.
+  const S = { settings: {}, runLog: [] };
+  window.chrome = {
+    storage: { local: {
+      get: k => Promise.resolve(typeof k === "string" ? { [k]: S[k] } :
+            Array.isArray(k) ? Object.fromEntries(k.map(x => [x, S[x]])) : { ...S }),
+      set: o => { Object.assign(S, o); return Promise.resolve(); },
+      remove: k => { for (const x of [].concat(k)) delete S[x]; return Promise.resolve(); }
+    }},
+    alarms: { create: () => {}, get: () => Promise.resolve(null) },
+    action: { setBadgeText: () => Promise.resolve(), setBadgeBackgroundColor: () => Promise.resolve() },
+    runtime: { onMessage: { addListener() {} } }
+  };
+</script>
+<script type="module">
+  const html = await (await fetch("../extension/options.html")).text();
+  const doc = new DOMParser().parseFromString(html, "text/html");
+  for (const style of doc.querySelectorAll("style")) document.head.appendChild(style);
+  document.body.innerHTML = doc.body.innerHTML;
+  await import("../extension/options.js");
+</script>

@@ -1,0 +1,47 @@
+<!DOCTYPE html><meta charset="utf-8"><title>bench</title>
+<pre id="out">running…</pre>
+<script>
+  // Both of these wipe the visit store. Served over http they run against a
+  // throwaway database on the page origin; loaded from inside the extension
+  // they would hit the real one, so refuse that outright.
+  if (location.protocol === "chrome-extension:") {
+    document.getElementById("out").textContent =
+      "Refused: this page clears the visit store. Serve it over http instead: " +
+      "python -m http.server 8731, then open http://127.0.0.1:8731/test/";
+    throw new Error("not inside the extension");
+  }
+  const store = {};
+  window.chrome = { storage: { local: {
+    get: () => Promise.resolve({}), set: () => Promise.resolve(), remove: () => Promise.resolve()
+  }}};
+</script>
+<script type="module">
+const D = await import("../extension/lib/db.js");
+const out = [];
+const log = s => { out.push(s); document.getElementById("out").textContent = out.join("\n"); };
+
+// 100,000 visits over 400 days across 3,000 pages on 200 hosts - more than the
+// real database holds, and spread wider.
+await D.clearVisits();
+const now = Date.now();
+const rows = [];
+for (let i = 0; i < 100000; i++) {
+  const host = `host${i % 200}.example.com`;
+  const page = i % 3000;
+  rows.push({ url: `https://${host}/page/${page}`, t: Math.floor(now - Math.random() * 400 * 864e5) });
+}
+let t0 = performance.now();
+for (let i = 0; i < rows.length; i += 10000) await D.mergeVisits(rows.slice(i, i + 10000));
+log(`seeded ${(await D.countVisits()).toLocaleString()} visits in ${Math.round(performance.now() - t0)} ms`);
+
+for (const [name, days, size] of [["7 days", 7, 1], ["30 days", 30, 1], ["90 days", 90, 1],
+                                  ["365 days", 365, 7], ["everything", 0, 7]]) {
+  const from = days ? now - days * 864e5 : null;
+  const t = performance.now();
+  const s = await D.collectStats({ from, size });
+  log(`${name.padEnd(12)} ${String(Math.round(performance.now() - t)).padStart(5)} ms   ` +
+      `${String(s.visits).padStart(7)} visits  ${s.hosts.length} hosts  ${s.buckets.size} buckets`);
+}
+await D.clearVisits();
+log("done");
+</script>

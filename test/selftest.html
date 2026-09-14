@@ -1,6 +1,15 @@
 <!DOCTYPE html><meta charset="utf-8"><title>selftest</title>
 <pre id="out">running…</pre>
 <script>
+  // Both of these wipe the visit store. Served over http they run against a
+  // throwaway database on the page origin; loaded from inside the extension
+  // they would hit the real one, so refuse that outright.
+  if (location.protocol === "chrome-extension:") {
+    document.getElementById("out").textContent =
+      "Refused: this page clears the visit store. Serve it over http instead: " +
+      "python -m http.server 8731, then open http://127.0.0.1:8731/test/";
+    throw new Error("not inside the extension");
+  }
   // Minimal chrome API stub so the modules can be imported outside an extension.
   const store = {};
   window.chrome = {
@@ -229,6 +238,41 @@ check("search: quoted forgives the trailing slash",
 check("search: quoted does not match a page below",
       (await D.searchPages('"example.com/a"')).total, 1);
 await D.clearPages();
+
+// ---- statistics ----
+check("hostOf drops www.", C.hostOf("https://www.facebook.com/x?a=1"), "facebook.com");
+check("hostOf keeps a subdomain", C.hostOf("https://test.facebook.com/"), "test.facebook.com");
+// Day numbers have to survive the two days a year that are not 24 hours long.
+check("dayNumber: a day apart is one apart",
+      C.dayNumber(new Date(2026, 2, 30, 23, 0)) - C.dayNumber(new Date(2026, 2, 29, 1, 0)), 1);
+check("dayNumber round-trips through its key",
+      C.dayNumberToKey(C.dayNumber(new Date(2026, 8, 14, 23, 30))), "2026-09-14");
+// Weeks are counted back from the anchor, so the newest bucket ends on it.
+check("bucketStart: the anchor's own week", C.bucketStart(100, 7, 100), 94);
+check("bucketStart: the day before that week", C.bucketStart(93, 7, 100), 87);
+check("bucketStart: daily buckets are the day itself", C.bucketStart(93, 1, 100), 93);
+
+await D.clearVisits();
+const at = (d, hour) => Date.UTC(2026, 5, d, hour, 0, 0);
+await D.mergeVisits([
+  { url: "https://www.example.com/a", t: at(10, 9) },
+  { url: "https://www.example.com/a", t: at(10, 17) },   // same page, same day
+  { url: "https://www.example.com/b", t: at(10, 18) },
+  { url: "https://other.example.com/x", t: at(12, 8) }
+]);
+const st = await D.collectStats({ size: 1 });
+check("stats: counts every visit", st.visits, 4);
+check("stats: counts distinct pages", st.pages, 3);
+const day10 = st.buckets.get(C.dayNumberToKey(C.dayNumber(at(10, 9))));
+check("stats: visits in a day", day10.visits, 3);
+check("stats: a page visited twice counts once that day", day10.pages, 2);
+check("stats: hosts are ranked by visits", st.hosts.map(x => x.host).join(","),
+      "example.com,other.example.com");
+check("stats: host keeps its own page count", st.hosts[0].pages, 2);
+// Empty days between two busy ones still have to be drawn.
+check("stats: the range spans the quiet days in between",
+      D.bucketRange(C.dayNumber(at(10, 9)), C.dayNumber(at(12, 8)), 1, C.dayNumber(at(12, 8))).length, 3);
+await D.clearVisits();
 
 // ---- run log ----
 const L = mods[base + "lib/log.js"];

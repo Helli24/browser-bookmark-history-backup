@@ -126,6 +126,20 @@
   details.logbox[open] > summary::before { transform: rotate(90deg); }
   details.logbox > summary:hover { color: var(--accent); }
   details.logbox > summary .count { text-transform: none; font-weight: 400; }
+  .statsbox > *:not(summary) { margin-top: 12px; }
+  .statsbox h3 { font-size: 13px; font-weight: 600; color: var(--muted); margin: 20px 0 0; }
+  .statsbox .row button.on { border-color: var(--accent); color: var(--text); }
+  /* Bars are plain divs - a chart library would be the only dependency in the
+     whole extension, and this one is a row of rectangles. */
+  .chart {
+    display: flex; align-items: flex-end; gap: 1px; height: 120px;
+    padding: 0 2px; background: var(--card); border: 1px solid var(--border);
+    border-radius: 7px; overflow: hidden;
+  }
+  .chart .bar { flex: 1 1 0; min-width: 1px; background: var(--accent); opacity: .75; }
+  .chart .bar:hover { opacity: 1; }
+  .chart .bar.empty { background: var(--border); opacity: .5; min-height: 1px; }
+  .chart-axis { justify-content: space-between; font-size: 12px; }
   .log { width: 100%; border-collapse: collapse; font-size: 12.5px; font-variant-numeric: tabular-nums; }
   .log td { padding: 4px 8px; border-bottom: 1px solid var(--border); white-space: nowrap; vertical-align: top; }
   .log tr:last-child td { border-bottom: none; }
@@ -277,6 +291,37 @@
       </tr></thead>
       <tbody id="hits"></tbody>
     </table></div>
+  </section>
+
+  <section>
+    <details class="logbox statsbox" id="statsBox">
+      <summary>Statistics <span class="count" id="statsHint">— counted when you open this</span></summary>
+
+      <div class="row" id="statsWindows">
+        <button type="button" data-days="7">7 days</button>
+        <button type="button" data-days="30" class="on">30 days</button>
+        <button type="button" data-days="90">90 days</button>
+        <button type="button" data-days="365">365 days</button>
+        <button type="button" data-days="0">Everything</button>
+      </div>
+
+      <div class="row muted" id="statsHead" style="font-size:12.5px"></div>
+
+      <div class="row" id="statsSeries">
+        <button type="button" data-series="visits" class="on">Visits</button>
+        <button type="button" data-series="pages">Pages</button>
+        <button type="button" data-series="fresh">New pages</button>
+      </div>
+
+      <div class="chart" id="chart"></div>
+      <div class="row muted chart-axis"><span id="chartFrom"></span><span id="chartTo"></span></div>
+
+      <h3>Top sites</h3>
+      <div class="scroll"><table id="topTable">
+        <thead><tr><th>Site</th><th class="num">Visits</th><th class="num">Pages</th></tr></thead>
+        <tbody id="topHosts"></tbody>
+      </table></div>
+    </details>
   </section>
 
   <section>

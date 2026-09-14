@@ -153,6 +153,34 @@ Browsers keep counting visits after discarding the underlying timestamps, so tha
 total can exceed the number of timestamps anyone still has. When that happens the
 expanded row says so rather than quietly showing fewer.
 
+## Statistics
+
+Between the search and the maintenance jobs, collapsed by default — and that is
+not just tidiness: nothing is counted until you open it, so the page itself loads
+exactly as fast as it would without it. The result is kept while the page stays
+open, and each window is counted once.
+
+One window switch applies to everything in the box — `7 · 30 · 90 · 365 days ·
+everything` — so the chart and the ranking underneath can never disagree about
+the period they describe. The bars show **visits**, **pages** (distinct URLs) or
+**new pages** (first seen in that bucket). Past 90 days a bar is a week rather
+than a day; a year of daily bars would be under three pixels each.
+
+Underneath, the 25 most visited sites in the same window, by host with `www.`
+folded away. `test.example.com` and `shop.example.com` stay separate — telling a
+real domain from a subdomain would need the public suffix list, and that is a file
+someone has to keep up to date.
+
+Everything here is counted from the visits this extension holds, never from the
+browser's own visit counter. That counter survives the timestamps it belongs to,
+so it cannot be split by day and would make the ranking contradict the chart above
+it. It appears in exactly one place, the expanded search row, where it is labelled
+as the browser's number and explains a gap.
+
+Cost, measured on a database of 100,000 visits: 10 ms for a week, 31 ms for a
+month, 344 ms for everything. The visit store is keyed by `[url, timestamp]`, so
+the keys alone carry the whole row and the scan never deserialises anything.
+
 ## Import from the browser once
 
 Settings → Maintenance → **Import from the browser's history**.
@@ -208,6 +236,8 @@ it was supposed to read.
 | `popup.*` | Status, quick search, back up now |
 | `tools/build-release.py` | Builds the release archive from `extension/` |
 | `test/selftest.html` | Asserts the parts that break silently |
+| `test/bench.html` | Times the statistics scan against 100,000 visits |
+| `test/preview.html` | Renders the options page outside an extension, for layout work |
 
 Permissions: `bookmarks`, `history`, `storage`, `alarms`, `unlimitedStorage`.
 

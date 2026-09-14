@@ -18,8 +18,30 @@ export function fmtDateTime(ms) {
 // - where Date.parse() yields whole milliseconds - becomes a second, distinct row.
 const ms = t => Math.floor(t);
 
-function hostOf(url) {
+export function hostOf(url) {
   try { return new URL(url).hostname.replace(/^www\./, ""); } catch { return ""; }
+}
+
+// Calendar days as plain integers. Local midnights are not a whole number of
+// hours apart - twice a year one day is 23 or 25 hours long - so the day is read
+// off the local calendar first and only then turned into a number, through UTC
+// where every day is the same length.
+export function dayNumber(x) {
+  const d = new Date(x);
+  return Math.floor(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()) / 864e5);
+}
+
+export function dayNumberToKey(n) {
+  const d = new Date(n * 864e5);
+  const p = v => String(v).padStart(2, "0");
+  return `${d.getUTCFullYear()}-${p(d.getUTCMonth() + 1)}-${p(d.getUTCDate())}`;
+}
+
+// The day a bucket of `size` days starts, counted back from `anchor` so that the
+// newest bucket always ends on the anchor day. Anchoring the other way round would
+// leave a stray part-week at the right edge, exactly where the eye goes first.
+export function bucketStart(n, size, anchor) {
+  return anchor - Math.floor((anchor - n) / size) * size - (size - 1);
 }
 
 function esc(s = "") {

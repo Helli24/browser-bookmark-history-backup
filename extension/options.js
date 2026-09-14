@@ -3,7 +3,10 @@ import {
   getSettings, setSettings, importIndex, backfillAll, record, flushMigrationNotes, DEFAULTS
 } from "./lib/run.js";
 import { getLog, KINDS } from "./lib/log.js";
-import { searchPages, countPages, countVisits, visitsForUrl } from "./lib/db.js";
+import {
+  searchPages, countPages, countVisits, visitsForUrl, collectStats, bucketRange
+} from "./lib/db.js";
+import { dayNumber } from "./lib/collect.js";
 import {
   permissionState, pickFolder, regrantPermission, backupNow,
   formatWhen, formatDate, timeAgo
@@ -24,7 +27,11 @@ const el = {
   dateField: $("dateField"),
   btnImport: $("btnImport"), importMsg: $("importMsg"), statusLine: $("statusLine"),
   btnBackfill: $("btnBackfill"), backfillMsg: $("backfillMsg"),
-  logBox: $("logBox"), logCount: $("logCount"), logRows: $("logRows")
+  logBox: $("logBox"), logCount: $("logCount"), logRows: $("logRows"),
+  statsBox: $("statsBox"), statsHint: $("statsHint"), statsHead: $("statsHead"),
+  statsWindows: $("statsWindows"), statsSeries: $("statsSeries"),
+  chart: $("chart"), chartFrom: $("chartFrom"), chartTo: $("chartTo"),
+  topHosts: $("topHosts")
 };
 
 const n = x => (x || 0).toLocaleString("en-US");
@@ -477,6 +484,111 @@ el.btnImport.addEventListener("click", async () => {
     await render();
   }
 });
+
+/* ---------------- Statistics ---------------- */
+
+// Nothing here runs until the box is opened, and the result is kept for as long
+// as the page stays open. The page load itself is untouched by any of it.
+let statsDays = 30;
+let statsSeries = "visits";
+const statsCache = new Map();
+
+el.statsBox.addEventListener("toggle", () => {
+  if (el.statsBox.open) renderStats();
+});
+
+for (const btn of el.statsWindows.querySelectorAll("button")) {
+  btn.addEventListener("click", () => {
+    statsDays = Number(btn.dataset.days);
+    mark(el.statsWindows, "days", String(statsDays));
+    renderStats();
+  });
+}
+
+for (const btn of el.statsSeries.querySelectorAll("button")) {
+  btn.addEventListener("click", () => {
+    statsSeries = btn.dataset.series;
+    mark(el.statsSeries, "series", statsSeries);
+    renderStats();
+  });
+}
+
+function mark(group, attr, value) {
+  for (const b of group.querySelectorAll("button")) {
+    b.classList.toggle("on", b.dataset[attr] === value);
+  }
+}
+
+async function renderStats() {
+  el.statsHint.textContent = "— counting…";
+  let stats = statsCache.get(statsDays);
+  if (!stats) {
+    // Days past 90 are drawn a week at a time: a year of daily bars is under three
+    // pixels each, and "everything" only gets worse from here.
+    const size = statsDays === 0 || statsDays > 90 ? 7 : 1;
+    const from = statsDays === 0 ? null : startOfDay(Date.now() - (statsDays - 1) * 864e5);
+    const t0 = performance.now();
+    stats = await collectStats({ from, size });
+    stats.took = Math.round(performance.now() - t0);
+    statsCache.set(statsDays, stats);
+  }
+  el.statsHint.textContent = `— ${stats.took} ms`;
+
+  if (!stats.visits && !stats.fresh) {
+    el.statsHead.textContent = statsDays
+      ? "Nothing in this window."
+      : "No visits recorded yet – run one backup and they will be here.";
+    el.chart.replaceChildren();
+    el.chartFrom.textContent = el.chartTo.textContent = "";
+    el.topHosts.replaceChildren();
+    return;
+  }
+
+  const bars = bucketRange(
+    dayNumber(stats.firstT ?? Date.now()), dayNumber(stats.lastT ?? Date.now()),
+    stats.size, stats.anchor
+  ).map(key => ({ key, ...(stats.buckets.get(key) || { visits: 0, pages: 0, fresh: 0 }) }));
+
+  const per = stats.size === 7 ? "week" : "day";
+  const busiest = bars.reduce((a, b) => (b[statsSeries] > a[statsSeries] ? b : a), bars[0]);
+  el.statsHead.textContent = [
+    `${formatDate(stats.firstT)} to ${formatDate(stats.lastT)}`,
+    `${n(stats.visits)} visits`,
+    `${n(stats.pages)} pages`,
+    `${n(stats.fresh)} of them new`,
+    // Naming a "busiest day" out of nothing but zeroes would be an invented fact.
+    busiest[statsSeries] ? `busiest ${per}: ${busiest.key} with ${n(busiest[statsSeries])}` : ""
+  ].filter(Boolean).join(" · ");
+
+  const top = Math.max(...bars.map(b => b[statsSeries]), 1);
+  const label = { visits: "visits", pages: "pages", fresh: "new pages" }[statsSeries];
+  el.chart.replaceChildren(...bars.map(b => {
+    const div = document.createElement("div");
+    const value = b[statsSeries];
+    div.className = value ? "bar" : "bar empty";
+    div.style.height = `${Math.max(value / top * 100, value ? 2 : 0)}%`;
+    div.title = `${b.key}${stats.size === 7 ? " (week)" : ""}: ${n(value)} ${label}`;
+    return div;
+  }));
+  el.chartFrom.textContent = bars[0].key;
+  el.chartTo.textContent = bars[bars.length - 1].key;
+
+  el.topHosts.replaceChildren(...stats.hosts.slice(0, 25).map(h => {
+    const tr = document.createElement("tr");
+    for (const [text, cls] of [[h.host, "url"], [n(h.visits), "num"], [n(h.pages), "num"]]) {
+      const td = document.createElement("td");
+      td.textContent = text;
+      td.className = cls;
+      tr.appendChild(td);
+    }
+    return tr;
+  }));
+}
+
+const startOfDay = t => {
+  const d = new Date(t);
+  return new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
+};
 
 /* ---------------- Start ---------------- */
 
