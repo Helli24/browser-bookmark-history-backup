@@ -89,6 +89,22 @@ el.btnFolder.addEventListener("click", async () => {
     // Drop the old note - it would now point at the wrong folder.
     await setSettings({ folderName: dir.name, folderNote: "" });
     await render();
+
+    // If the folder already holds an index and ours is empty, adopt it before
+    // writing anything. Otherwise the first backup would export our empty
+    // database straight over the existing one - which is exactly what happens
+    // when the extension is reinstalled and pointed back at its own backups.
+    if (await countPages() === 0) {
+      try {
+        const r = await importIndex(dir);
+        if (r.read) {
+          setMsg(el.importMsg,
+            `Existing backup found and adopted: ${n(r.total)} pages, ${n(r.visitsTotal)} visits.`,
+            "ok");
+        }
+      } catch { /* no index in there yet - the normal case for a fresh folder */ }
+    }
+
     // Write straight away so the folders show up and the choice is visibly confirmed.
     setMsg(el.backupMsg, "Folder set, running the first backup…");
     await doBackup();
