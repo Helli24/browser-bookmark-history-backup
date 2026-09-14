@@ -46,12 +46,13 @@ No Web Store, no account, no installer — you point the browser at a folder.
 The browser will warn that the extension can read your browsing history. It can —
 that is the entire job. Nothing leaves your machine.
 
-**To update:** download the new ZIP, extract it over the same folder, then press
-the reload arrow on the extension's card. `VERSION.txt` in the folder says which
-version you extracted — if it disagrees with the version on the extension's card,
-the reload was missed. Do **not** press Remove and add it
-again: removing deletes the extension's storage, which is where your settings and
-the whole page index live. Overwrite-and-reload keeps everything.
+**To update:** download the new ZIP, extract it over the same folder, then press the
+reload arrow on the extension's card. Do **not** press Remove and add it again —
+removing deletes the extension's storage, which is where your settings and the whole
+page index live. Overwrite-and-reload keeps everything.
+
+`VERSION.txt` in the folder says which version you extracted. If it disagrees with
+the version on the extension's card, the reload was missed.
 
 The folder can be anywhere, including a second partition, e.g. `D:\Chrome Backup`.
 The browser will ask for permission once.
@@ -166,6 +167,8 @@ it was supposed to read.
 | `lib/ui.js` | Shared between popup and options page |
 | `options.*` | Settings, search, maintenance |
 | `popup.*` | Status, quick search, back up now |
+| `tools/build-release.py` | Builds the release archive from `extension/` |
+| `test/selftest.html` | Asserts the parts that break silently |
 
 Permissions: `bookmarks`, `history`, `storage`, `alarms`, `unlimitedStorage`.
 
