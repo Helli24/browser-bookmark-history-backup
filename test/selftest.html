@@ -173,6 +173,38 @@ check("stored timestamp is a whole millisecond",
       Number.isInteger((await D.visitsForUrl(dupUrl))[0]), true);
 await D.clearVisits();
 
+// ---- search: order and date range ----
+// Three pages first seen on three different days, deliberately merged in an order
+// that matches neither, since the store is keyed by url.
+await D.clearPages();
+const day = d => Date.UTC(2026, 5, d, 12, 0, 0);
+await D.mergePages([
+  { url: "https://example.com/b", title: "B", host: "example.com", first: day(11), last: day(11), count: 1 },
+  { url: "https://example.com/a", title: "A", host: "example.com", first: day(10), last: day(10), count: 1 },
+  { url: "https://example.com/c", title: "C", host: "example.com", first: day(12), last: day(12), count: 1 }
+]);
+const titles = r => r.hits.map(h => h.title).join("");
+
+check("search: oldest first by default",
+      titles(await D.searchPages("example.com")), "ABC");
+check("search: newest first on request",
+      titles(await D.searchPages("example.com", 300, { newestFirst: true })), "CBA");
+// The limit has to keep the end that is being shown, not whatever the cursor met
+// first - the store is in url order, so those are not the same rows.
+check("search: the limit keeps the oldest",
+      titles(await D.searchPages("example.com", 2)), "AB");
+check("search: the limit keeps the newest",
+      titles(await D.searchPages("example.com", 2, { newestFirst: true })), "CB");
+check("search: total counts past the limit",
+      (await D.searchPages("example.com", 2)).total, 3);
+// Both ends inclusive: "from the 11th until the 11th" is that one day.
+const oneDay = await D.searchPages("", 300, { from: day(11) - 432e5, to: day(11) + 432e5 });
+check("search: date range includes both ends", titles(oneDay), "B");
+check("search: date range without a term", oneDay.total, 1);
+check("search: date range and term together",
+      titles(await D.searchPages("/c", 300, { from: day(10) })), "C");
+await D.clearPages();
+
 // ---- run log ----
 const L = mods[base + "lib/log.js"];
 await L.clearLog();

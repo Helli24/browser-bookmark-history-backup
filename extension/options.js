@@ -20,6 +20,8 @@ const el = {
   bookmarksRetention: $("bookmarksRetention"), historyRetention: $("historyRetention"),
   btnBackup: $("btnBackup"), backupMsg: $("backupMsg"),
   search: $("search"), searchInfo: $("searchInfo"), table: $("table"), hits: $("hits"),
+  dateFrom: $("dateFrom"), dateTo: $("dateTo"), btnClearDates: $("btnClearDates"),
+  btnSort: $("btnSort"), sortArrow: $("sortArrow"),
   btnImport: $("btnImport"), importMsg: $("importMsg"), statusLine: $("statusLine"),
   btnBackfill: $("btnBackfill"), backfillMsg: $("backfillMsg"),
   logBox: $("logBox"), logCount: $("logCount"), logRows: $("logRows")
@@ -225,14 +227,45 @@ el.btnBackup.addEventListener("click", doBackup);
 /* ---------------- Search ---------------- */
 
 let searchTimer = null;
+let newestFirst = false;
+
 el.search.addEventListener("input", () => {
   clearTimeout(searchTimer);
   searchTimer = setTimeout(doSearch, 180);
 });
 
+// A partly typed date is meaningless, so wait for change rather than input.
+el.dateFrom.addEventListener("change", doSearch);
+el.dateTo.addEventListener("change", doSearch);
+
+el.btnClearDates.addEventListener("click", () => {
+  el.dateFrom.value = el.dateTo.value = "";
+  doSearch();
+});
+
+el.btnSort.addEventListener("click", () => {
+  newestFirst = !newestFirst;
+  el.sortArrow.textContent = newestFirst ? "↓" : "↑";
+  el.btnSort.title = newestFirst
+    ? "Newest first – click for oldest first"
+    : "Oldest first – click for newest first";
+  doSearch();
+});
+
+// The inputs hand over a plain YYYY-MM-DD, which both ends of the range have to
+// grow into a whole local day: "until the 14th" has to include the 14th.
+const dayStart = v => (v ? new Date(`${v}T00:00:00`).getTime() : null);
+const dayEnd = v => (v ? new Date(`${v}T23:59:59.999`).getTime() : null);
+
 async function doSearch() {
   const q = el.search.value.trim();
-  if (!q) {
+  const from = dayStart(el.dateFrom.value);
+  const to = dayEnd(el.dateTo.value);
+  el.btnClearDates.hidden = !el.dateFrom.value && !el.dateTo.value;
+
+  // A date range is a search in its own right: it answers "what did I find that
+  // week", which needs no search term at all.
+  if (!q && from === null && to === null) {
     el.table.hidden = true;
     el.hits.replaceChildren();
     const count = await countPages();
@@ -242,9 +275,17 @@ async function doSearch() {
     return;
   }
 
-  const { hits, total } = await searchPages(q, 300);
+  if (from !== null && to !== null && from > to) {
+    el.table.hidden = true;
+    el.hits.replaceChildren();
+    el.searchInfo.textContent = "That range ends before it starts.";
+    return;
+  }
+
+  const { hits, total } = await searchPages(q, 300, { from, to, newestFirst });
+  const end = newestFirst ? "newest" : "oldest";
   el.searchInfo.textContent = total
-    ? `${n(total)} matches${total > hits.length ? `, showing the ${hits.length} oldest` : ""}`
+    ? `${n(total)} matches${total > hits.length ? `, showing the ${hits.length} ${end}` : ""}`
     : "No matches.";
 
   el.table.hidden = hits.length === 0;

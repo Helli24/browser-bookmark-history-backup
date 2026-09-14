@@ -158,28 +158,55 @@ export function mergePages(rows) {
 export const countPages = () =>
   run("pages", "readonly", (s, set) => { const r = s.count(); r.onsuccess = () => set(r.result); });
 
+// Holds the `limit` rows that come first in display order, without keeping every
+// match in memory: a row that cannot beat the current last one is dropped where it
+// is found. Sorting the whole result and then slicing would do the same thing, but
+// the number of matches is not bounded by anything the user can see.
+function topRows(limit, newestFirst) {
+  const rows = [];
+  const before = (a, b) => (newestFirst ? a.first > b.first : a.first < b.first);
+  return {
+    rows,
+    offer(v) {
+      if (rows.length >= limit && !before(v, rows[rows.length - 1])) return;
+      let lo = 0, hi = rows.length;
+      while (lo < hi) {
+        const mid = (lo + hi) >> 1;
+        if (before(v, rows[mid])) hi = mid; else lo = mid + 1;
+      }
+      rows.splice(lo, 0, v);
+      if (rows.length > limit) rows.pop();
+    }
+  };
+}
+
 // Substring search over the normalised URL (path included) and the title.
 // Full cursor scan - a few hundred thousand rows are milliseconds in IndexedDB,
 // and it beats maintaining a token index for an occasional lookup.
-// Oldest first visit first, because that is usually the question being asked.
-export function searchPages(term, limit = 300) {
+//
+// `from` and `to` are milliseconds and bound the *first* visit, the same date the
+// results are sorted by: the question is which pages entered the index in that
+// window, not which ones were open again during it. Oldest first by default,
+// because that is usually what is being asked.
+export function searchPages(term, limit = 300, opts = {}) {
+  const { from = null, to = null, newestFirst = false } = opts;
   const q = searchKey(String(term || "").trim());
   return run("pages", "readonly", (store, set) => {
-    const hits = [];
+    const top = topRows(limit, newestFirst);
     let total = 0;
     const cur = store.openCursor();
     cur.onsuccess = () => {
       const c = cur.result;
       if (!c) {
-        hits.sort((a, b) => a.first - b.first);
-        set({ hits: hits.slice(0, limit), total });
+        set({ hits: top.rows, total });
         return;
       }
       const v = c.value;
+      const inRange = (from === null || v.first >= from) && (to === null || v.first <= to);
       const k = v.k || searchKey(v.url);
-      if (!q || k.includes(q) || (v.title || "").toLowerCase().includes(q)) {
+      if (inRange && (!q || k.includes(q) || (v.title || "").toLowerCase().includes(q))) {
         total++;
-        if (hits.length < 5000) hits.push(v);
+        top.offer(v);
       }
       c.continue();
     };

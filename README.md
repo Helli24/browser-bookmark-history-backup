@@ -130,8 +130,16 @@ are ignored:
 | `/pull/` | every pull request page you ever had open |
 | `jira` | hits in the host, in the path, or in the title |
 
-Results are sorted oldest first visit first — usually the answer you came for.
-Click the visit count to expand a row into the individual timestamps.
+Results are sorted by first visit, oldest first — usually the answer you came for.
+Click the **First visit** header to turn that around. Click the visit count to
+expand a row into the individual timestamps.
+
+The two date fields narrow the results to pages **first seen** in that window,
+with either end optional: a `from` alone means "since then", a `to` alone means
+"before that". They work without a search term as well, which answers a different
+question — what did I find that week. The dates bound the first visit, not every
+visit, so a page you discovered in 2024 and reopened yesterday is not in
+yesterday's range.
 
 Browsers keep counting visits after discarding the underlying timestamps, so that
 total can exceed the number of timestamps anyone still has. When that happens the
