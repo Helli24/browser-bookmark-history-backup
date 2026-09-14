@@ -1,0 +1,10 @@
+{
+  "menuPage": {
+    "message": "When was I first here?",
+    "description": "Context menu entry on a page. Opens the index search for that address."
+  },
+  "menuLink": {
+    "message": "When was I first on this page?",
+    "description": "Context menu entry on a link. Opens the index search for the link target."
+  }
+}

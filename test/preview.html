@@ -20,7 +20,8 @@
     action: { setBadgeText: () => Promise.resolve(), setBadgeBackgroundColor: () => Promise.resolve() },
     runtime: { onMessage: { addListener() {} }, getURL: p => p },
     contextMenus: { create() {}, removeAll(cb) { cb && cb(); }, onClicked: { addListener() {} } },
-    tabs: { create: () => Promise.resolve() }
+    tabs: { create: () => Promise.resolve() },
+    i18n: { getMessage: k => k, getUILanguage: () => "en" }
   };
 </script>
 <script type="module">

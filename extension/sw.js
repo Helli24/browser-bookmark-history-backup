@@ -44,23 +44,33 @@ async function restoreBadge() {
 
 /* ---------------- Context menu ---------------- */
 
-const MENU = "lookup";
+const MENU_PAGE = "lookupPage";
+const MENU_LINK = "lookupLink";
 
 // Opens the settings page with the address already in the search box, quoted, so
-// the answer is about that one page and not the thousands below it. Works on a
-// link too: the question is often "have I been there" before clicking, not after.
+// the answer is about that one page and not the thousands below it. Also on a
+// link: the question is often "have I been there" before clicking, not after.
+//
+// The only string this extension puts inside the browser's own menus, between
+// Back and Reload - so it is the only one that follows the browser's language
+// rather than the extension's. _locales/ holds the wordings.
 function installMenu() {
   chrome.contextMenus.removeAll(() => {
     chrome.contextMenus.create({
-      id: MENU,
-      title: "When was I first here?",
-      contexts: ["page", "link"]
+      id: MENU_PAGE,
+      title: chrome.i18n.getMessage("menuPage"),
+      contexts: ["page"]
+    });
+    chrome.contextMenus.create({
+      id: MENU_LINK,
+      title: chrome.i18n.getMessage("menuLink"),
+      contexts: ["link"]
     });
   });
 }
 
 chrome.contextMenus.onClicked.addListener(async info => {
-  if (info.menuItemId !== MENU) return;
+  if (info.menuItemId !== MENU_PAGE && info.menuItemId !== MENU_LINK) return;
   const url = info.linkUrl || info.pageUrl;
   if (!url) return;
   await chrome.tabs.create({

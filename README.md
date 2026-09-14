@@ -143,6 +143,13 @@ Right-clicking a page or a link offers **"When was I first here?"**, which opens
 the settings page with that address already quoted in the search box — the
 question usually turns up while browsing, not while in the settings.
 
+That entry is the one string of this extension that appears inside the browser's
+own menus, so it is the only one that follows the *browser's* language instead of
+the extension's English: `_locales/en` and `_locales/de` today, anything else
+falls back to English. Adding a language is a directory with one JSON file in it,
+and the self-test fails if a message is missing from any of them — Chrome does not
+complain about that, it just draws an empty menu entry.
+
 **Quotes mean the whole URL.** `facebook.com` matches every photo, message and
 profile you ever opened there; `"facebook.com"` matches the front page alone. The
 scheme, `www.` and a trailing slash are ignored on both sides, so

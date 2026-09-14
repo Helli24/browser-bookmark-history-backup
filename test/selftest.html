@@ -27,6 +27,7 @@
     alarms: { create: () => {}, get: () => Promise.resolve(null), onAlarm: { addListener(){} } },
     contextMenus: { create(){}, removeAll(cb){ cb && cb(); }, onClicked: { addListener(){} } },
     tabs: { create: () => Promise.resolve() },
+    i18n: { getMessage: k => k, getUILanguage: () => "en" },
     action: { setBadgeText: () => Promise.resolve(), setBadgeBackgroundColor: () => Promise.resolve() },
     runtime: { onMessage: { addListener(){} }, onInstalled: { addListener(){} }, onStartup: { addListener(){} } }
   };
@@ -275,6 +276,21 @@ check("stats: host keeps its own page count", st.hosts[0].pages, 2);
 check("stats: the range spans the quiet days in between",
       D.bucketRange(C.dayNumber(at(10, 9)), C.dayNumber(at(12, 8)), 1, C.dayNumber(at(12, 8))).length, 3);
 await D.clearVisits();
+
+// ---- translations ----
+// A missing message id does not throw: Chrome just shows an empty menu entry, in
+// the browser's own menu, where it would look like a broken extension.
+const LOCALES = ["en", "de"];   // add a directory, add it here
+const asked = [...(await (await fetch(base + "sw.js")).text())
+  .matchAll(/i18n\.getMessage\("([^"]+)"\)/g)].map(m => m[1]);
+check("locales: the code asks for some", asked.length, 2);
+for (const loc of LOCALES) {
+  const msgs = await (await fetch(`${base}_locales/${loc}/messages.json`)).json();
+  check(`locales: ${loc} translates every id the code uses`,
+        asked.filter(id => !msgs[id]?.message).join(",") || "none missing", "none missing");
+  check(`locales: ${loc} carries nothing unused`,
+        Object.keys(msgs).filter(k => !asked.includes(k)).join(",") || "none extra", "none extra");
+}
 
 // ---- overdue detection ----
 // The one failure this tool has to notice about itself.
