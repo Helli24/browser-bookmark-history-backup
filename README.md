@@ -280,3 +280,9 @@ Two caveats from Chrome's manifest rules: each component must be an integer
 between 0 and 65535, and leading zeros are rejected. So `2026.9.13`, never
 `2026.09.13`. For a second release on the same day, append a fourth component:
 `2026.9.13.1`.
+
+**Git tags pad every component to two digits** — manifest `2026.9.14.12`, tag
+`v2026.09.14.12`. GitHub orders the releases page by comparing tag names as text,
+not by date, and unpadded numbers sort wrongly there: `9` comes after `1`, so
+`v2026.9.14.9` would sit above `v2026.9.14.12`, and `v2026.9.9` above
+`v2026.9.14`. The padding is only in the tag, because the manifest may not have it.
