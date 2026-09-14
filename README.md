@@ -1,27 +1,40 @@
-# Chrome Backup – Bookmarks & History
+# Bookmark & History Backup
 
-A Manifest V3 Chrome extension that writes your bookmarks and browsing history
-into a folder of your choice once a day — and answers the one question Chrome's
-own history cannot:
+A Manifest V3 extension for **Chrome and Edge** that writes your bookmarks and
+browsing history into a folder of your choice once a day — and answers the one
+question the browser's own history cannot:
 
 > "When was I first on `github.com/xyz`?"
 
-Chrome discards visit data after roughly 90 days. The **page index** this
+Both browsers discard visit data after roughly 90 days. The **page index** this
 extension keeps does not: one row per URL with first visit, last visit and visit
 count, growing for as long as the extension is installed.
 
 Everything runs locally. The extension has no network access and talks to no
 server.
 
+## Browsers
+
+Tested in **Chrome** and **Edge**. Other Chromium browsers — Brave, Vivaldi, Opera —
+use the same APIs and will very likely work, but have not been tried.
+
+**Firefox will not work**, and not for want of a few tweaks: it deliberately does
+not implement `showDirectoryPicker()`, so writing into a folder you choose — the
+whole point of this — is not available there at all.
+
+Chrome and Edge keep separate bookmarks and separate history, and an extension only
+ever sees the browser it runs in. Installing it in both is fine; give each its own
+target folder, or they will overwrite each other's index files.
+
 ## Install
 
-1. Open `chrome://extensions`
+1. Open `chrome://extensions` — in Edge, `edge://extensions`
 2. Turn on **Developer mode** (top right)
 3. **Load unpacked** → select the `extension/` folder
 4. Click the icon → **Settings** → **Choose folder…**
 
 The folder can be anywhere, including a second partition, e.g. `D:\Chrome Backup`.
-Chrome will ask for permission once.
+The browser will ask for permission once.
 
 Only the folder's name is shown afterwards, never its full path — the File System
 Access API deliberately withholds that from extensions, and there is no way around
@@ -34,7 +47,7 @@ want to see at a glance which folder is configured.
 D:\Chrome Backup\
 ├── Bookmarks\
 │   ├── bookmarks-2026-09-13.json     full tree, easy to diff
-│   └── bookmarks-2026-09-13.html     Netscape format, importable into Chrome
+│   └── bookmarks-2026-09-13.html     Netscape format, re-importable
 ├── History\
 │   └── history-2026-09-13.txt        time, title and URL of every visit
 └── Index\
@@ -53,7 +66,7 @@ almost always identical to yesterday's. Default: keep 30 days, and *only write w
 something actually changed*, so the folder becomes a record of when you edited your
 bookmarks rather than a pile of duplicates.
 
-A **history** log is unique. Delete it and that day is gone, since Chrome forgot it
+A **history** log is unique. Delete it and that day is gone, since the browser forgot it
 long ago. Default: `0`, keep everything.
 
 `0` is available for both. Whatever the setting, **the most recent snapshot is never
@@ -77,15 +90,15 @@ are ignored:
 Results are sorted oldest first visit first — usually the answer you came for.
 Click the visit count to expand a row into the individual timestamps.
 
-Chrome keeps counting visits after it has discarded the underlying timestamps, so
-its total can exceed the number of timestamps anyone still has. When that happens
-the expanded row says so rather than quietly showing fewer.
+Browsers keep counting visits after discarding the underlying timestamps, so that
+total can exceed the number of timestamps anyone still has. When that happens the
+expanded row says so rather than quietly showing fewer.
 
-## Import from Chrome once
+## Import from the browser once
 
-Settings → Maintenance → **Import from Chrome's history**.
+Settings → Maintenance → **Import from the browser's history**.
 
-Chrome's history is a rolling ~90-day window; what is in it today is gone in three
+The browser's history is a rolling ~90-day window; what is in it today is gone in three
 months. This makes one pass over the whole window, writes a daily log for every day
 it covers, and fills the index with the matching timestamps. A minute or two, and
 worth doing on the day you install.
@@ -97,21 +110,21 @@ opposite way — see [Restoring](#restoring).
 
 ## The one caveat
 
-Chrome forgets the folder permission when the **browser restarts**. The scheduled
+The browser forgets the folder permission when it **restarts**. The scheduled
 run then cannot write to disk without asking.
 
 Nothing is lost when that happens: the finished backup goes into a queue, the icon
-gets a `!`, and the next click writes everything out. If your Chrome stays open for
+gets a `!`, and the next click writes everything out. If your browser stays open for
 days at a time you will never see it.
 
 Getting rid of this entirely would require a native messaging host — a small local
-script that Chrome launches. That is deliberately *not* part of this project,
+script the browser launches. That is deliberately *not* part of this project,
 because it needs setup on every machine.
 
 ## Restoring
 
-**Bookmarks:** `chrome://bookmarks` → ⋮ menu → *Import bookmarks* → pick the
-`.html` from `Bookmarks\`.
+**Bookmarks:** `chrome://bookmarks` (Edge: `edge://favorites`) → ⋮ menu →
+*Import bookmarks* → pick the `.html` from `Bookmarks\`.
 
 **The index after a reinstall:** Settings → Maintenance → *Restore from your backup
 folder*. Reads `Index\page-index.jsonl` and every `Index\visits-<year>.jsonl`
@@ -127,7 +140,7 @@ it was supposed to read.
 | File | Purpose |
 |---|---|
 | `sw.js` | Service worker: schedule, catch-up for missed runs, messaging |
-| `lib/collect.js` | Reads the Chrome APIs, produces the file formats |
+| `lib/collect.js` | Reads the browser APIs, produces the file formats |
 | `lib/db.js` | IndexedDB: directory handle and page index |
 | `lib/run.js` | Orchestration: build, write, prune, queue |
 | `lib/ui.js` | Shared between popup and options page |
@@ -138,7 +151,7 @@ Permissions: `bookmarks`, `history`, `storage`, `alarms`, `unlimitedStorage`.
 
 ## Known limits
 
-- The index can only backfill what Chrome still holds on the first run (~90 days).
+- The index can only backfill what the browser still holds on the first run (~90 days).
   From then on it is gapless. The same applies to the individual timestamps.
 - Local history only. History synced from other devices is not exposed to
   extensions.
@@ -162,7 +175,7 @@ the same trick applies: split it by first-visit year.
 
 ## Self-test
 
-`test/selftest.html` imports every module against a stubbed Chrome API and asserts
+`test/selftest.html` imports every module against a stubbed browser API and asserts
 the parts that are easy to break silently — HTML escaping in the Netscape export,
 the CSV/JSONL field names the importer depends on, search-key normalisation, that
 a first visit is backdated beyond the requested window, and that backing up twice

@@ -1,4 +1,4 @@
-// Reads bookmarks and history from the Chrome APIs and turns them into files.
+// Reads bookmarks and history from the browser APIs and turns them into files.
 
 export function dateKey(d = new Date()) {
   const p = n => String(n).padStart(2, "0");
@@ -27,7 +27,7 @@ function esc(s = "") {
 export async function collectBookmarks() {
   const tree = await chrome.bookmarks.getTree();
   const stats = { folders: 0, links: 0 };
-  // Depth 0 is the invisible root Chrome wraps everything in - not a real folder.
+  // Depth 0 is the invisible root the browser wraps everything in - not a real folder.
   (function count(nodes, depth) {
     for (const n of nodes || []) {
       if (n.url) stats.links++;
@@ -42,12 +42,12 @@ export async function collectBookmarks() {
   return { json, html: toNetscape(tree[0]?.children || []), stats };
 }
 
-// Netscape bookmark format - the only one Chrome can import back in.
+// Netscape bookmark format - the only one the browser can import back in.
 function toNetscape(roots) {
   const sec = ms => Math.floor((ms || Date.now()) / 1000);
   const out = [
     "<!DOCTYPE NETSCAPE-Bookmark-file-1>",
-    "<!-- Generated automatically. Import via chrome://bookmarks -> menu -> Import bookmarks -->",
+    "<!-- Generated automatically. Import via chrome://bookmarks or edge://favorites -->",
     '<META HTTP-EQUIV="Content-Type" CONTENT="text/html; charset=UTF-8">',
     "<TITLE>Bookmarks</TITLE>",
     "<H1>Bookmarks</H1>",
@@ -59,7 +59,7 @@ function toNetscape(roots) {
       if (n.url) {
         out.push(`${pad}<DT><A HREF="${esc(n.url)}" ADD_DATE="${sec(n.dateAdded)}">${esc(n.title)}</A>`);
       } else {
-        // Node id "1" is the bookmarks bar; Chrome needs the flag to restore it there.
+        // Node id "1" is the bookmarks bar; the browser needs the flag to restore it there.
         const bar = n.id === "1" ? ' PERSONAL_TOOLBAR_FOLDER="true"' : "";
         out.push(`${pad}<DT><H3 ADD_DATE="${sec(n.dateAdded)}" LAST_MODIFIED="${sec(n.dateGroupModified)}"${bar}>${esc(n.title)}</H3>`);
         out.push(`${pad}<DL><p>`);
@@ -91,7 +91,7 @@ export async function collectHistory(startTime, endTime) {
 
     for (const v of raw) {
       if (!v.visitTime) continue;
-      // Keep every timestamp Chrome hands us, not just the ones inside the window.
+      // Keep every timestamp the browser hands us, not just the ones inside the window.
       // On the first run that backfills months of visit history in one go.
       allVisits.push({ url: it.url, t: v.visitTime });
       if (v.visitTime >= startTime && v.visitTime < endTime) {
@@ -99,9 +99,9 @@ export async function collectHistory(startTime, endTime) {
       }
     }
 
-    // For the index the earliest timestamp Chrome still knows about counts - not just
+    // For the index the earliest timestamp the browser still knows about counts - not just
     // the one inside the window. That backdates the first visit as far as possible on
-    // the very first run. Chrome drops visit rows after ~90 days, so from then on our
+    // the very first run. Browsers drop visit rows after ~90 days, so from then on our
     // own index is the only place that remembers.
     let first = it.lastVisitTime || Date.now();
     for (const v of raw) if (v.visitTime && v.visitTime < first) first = v.visitTime;
@@ -142,7 +142,7 @@ export function historyToText(day, visits) {
 
 /* ---------------- One-off backfill ---------------- */
 
-// Everything Chrome still remembers, in one pass. Used once, to rescue the
+// Everything the browser still remembers, in one pass. Used once, to rescue the
 // rolling ~90-day window before it expires; the daily run only ever looks at
 // the last few days.
 //

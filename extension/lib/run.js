@@ -21,7 +21,7 @@ export const DEFAULTS = {
   bookmarksOnlyOnChange: true,
   historyRetentionDays: 0,       // 0 = keep forever
   folderName: "",
-  folderNote: ""    // the full path, typed by hand: Chrome never tells us
+  folderNote: ""    // the full path, typed by hand: the browser never tells us
 };
 
 export const FOLDERS = { bookmarks: "Bookmarks", history: "History", index: "Index" };
@@ -158,7 +158,7 @@ export async function getGrantedDir() {
     throw e;
   }
   if (await dir.queryPermission({ mode: "readwrite" }) !== "granted") {
-    const e = new Error("Folder access has to be confirmed once after a Chrome restart.");
+    const e = new Error("Folder access has to be confirmed once after a browser restart.");
     e.code = "NO_PERMISSION";
     throw e;
   }
@@ -285,9 +285,9 @@ export async function badge(text) {
 
 /* ---------------- One-off backfill ---------------- */
 
-// Writes a daily log for every day Chrome still covers and fills the database
+// Writes a daily log for every day the browser still covers and fills the database
 // with the matching timestamps. Meant to be run once, shortly after installing:
-// whatever is inside Chrome's rolling window today is gone in three months.
+// whatever is inside the browser's rolling window today is gone in three months.
 export async function backfillAll(dir, onProgress = () => {}) {
   const cfg = await getSettings();
   const { byDay, index, allVisits, urls } = await collectAllHistory({ onProgress });
@@ -346,7 +346,7 @@ async function readTextFile(dir, name) {
 }
 
 // Reads the index back out of the backup folder, so it survives a reinstall of
-// the extension or a wiped Chrome profile. page-index.jsonl carries the summary,
+// the extension or a wiped browser profile. page-index.jsonl carries the summary,
 // visits-<year>.jsonl the individual timestamps.
 export async function importIndex(dir) {
   const idx = await dir.getDirectoryHandle(FOLDERS.index, { create: false });

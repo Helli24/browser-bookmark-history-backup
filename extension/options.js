@@ -66,7 +66,7 @@ async function render() {
   if (needsClick) {
     el.permBannerText.textContent = queue.length
       ? `${queue.length} backup(s) are waiting to be written.`
-      : "Chrome forgot the permission after the restart.";
+      : "The browser forgot the permission after the restart.";
   }
 
   const alarm = await chrome.alarms.get("daily");
@@ -296,14 +296,14 @@ async function toggleDetail(tr, toggle, row) {
   }
   cell.appendChild(box);
 
-  // Chrome drops visit rows after ~90 days but keeps counting, so its total can
+  // The browser drops visit rows after ~90 days but keeps counting, so its total can
   // exceed the timestamps anyone still has. Say so instead of looking wrong.
   const missing = (row.count || 0) - times.length;
   if (missing > 0) {
     const note = document.createElement("div");
     note.className = "note";
     note.textContent =
-      `Chrome counts ${n(row.count)} visits in total; the ${n(missing)} oldest no longer have ` +
+      `The browser counts ${n(row.count)} visits in total; the ${n(missing)} oldest no longer have ` +
       `a timestamp. Everything from here on is recorded in full.`;
     cell.appendChild(note);
   }

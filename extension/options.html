@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<title>Chrome Backup – Settings</title>
+<title>Bookmark &amp; History Backup – Settings</title>
 <style>
   :root {
     --bg: #f6f7f9; --card: #ffffff; --border: #e3e6ea; --text: #1b1f24;
@@ -107,14 +107,14 @@
 </head>
 <body>
 <div class="wrap">
-  <h1>Chrome Backup</h1>
+  <h1>Bookmark &amp; History Backup</h1>
   <p class="sub">Bookmarks and browsing history, once a day, into a folder you choose.</p>
 
   <section id="permBanner" class="banner" hidden>
     <div class="row">
       <div class="grow">
         <strong>Confirm folder access</strong>
-        <div class="muted" id="permBannerText">Chrome forgot the permission after the restart.</div>
+        <div class="muted" id="permBannerText">The browser forgot the permission after the restart.</div>
       </div>
       <button class="primary" id="btnRegrant">Grant and catch up</button>
     </div>
@@ -126,7 +126,7 @@
       <div class="grow">
         <div id="folderName"><span class="muted">No folder chosen yet</span></div>
         <input type="text" id="folderNote" class="note-input" autocomplete="off"
-               placeholder="Note the full path here — Chrome does not reveal it to extensions">
+               placeholder="Note the full path here — the browser does not reveal it to extensions">
         <div class="muted" style="font-size:12.5px;margin-top:6px">
           It will contain <code>Bookmarks\</code>, <code>History\</code> and <code>Index\</code>.
         </div>
@@ -143,7 +143,7 @@
       <input type="checkbox" id="cbBookmarks">
       <div class="txt">
         <label for="cbBookmarks"><strong>Bookmarks</strong></label>
-        <div class="hint">One <code>.json</code> (complete, easy to diff) and one <code>.html</code> (importable back into Chrome).</div>
+        <div class="hint">One <code>.json</code> (complete, easy to diff) and one <code>.html</code> (importable back into the browser).</div>
         <div class="sub-setting">
           <label class="inline">
             <input type="checkbox" id="cbOnlyOnChange">
@@ -184,7 +184,7 @@
           </label>
           <div class="hint">
             <code>0</code> keeps everything, which is the default here: every daily log is unique,
-            so deleting one destroys the only record of that day. Chrome itself has already
+            so deleting one destroys the only record of that day. The browser itself has already
             forgotten it.
           </div>
         </div>
@@ -194,7 +194,7 @@
       <input type="checkbox" id="cbIndex">
       <div class="txt">
         <label for="cbIndex"><strong>Page index</strong> <span class="muted">– answers “when was I first on …?”</span></label>
-        <div class="hint">One row per URL with first visit, last visit and visit count. Keeps growing even though Chrome discards visit data after about 90 days.</div>
+        <div class="hint">One row per URL with first visit, last visit and visit count. Keeps growing even though the browser discards visit data after about 90 days.</div>
       </div>
     </div>
   </section>
@@ -238,9 +238,9 @@
 
     <div class="row" style="margin-top:12px">
       <div class="grow">
-        <strong>Import from Chrome's history</strong>
+        <strong>Import from the browser's history</strong>
         <div class="muted" style="font-size:12.5px">
-          Chrome keeps roughly 90 days and then throws the rest away. This reads everything
+          The browser keeps roughly 90 days and then throws the rest away. This reads everything
           it still holds in one pass — a daily log for every day covered, plus those
           timestamps in the index. Worth running once, now: what is in there today is gone
           in three months.
@@ -256,7 +256,7 @@
         <div class="muted" style="font-size:12.5px">
           The other direction: reads your own <code>Index\page-index.jsonl</code> and every
           <code>visits-&lt;year&gt;.jsonl</code> back into the database. For after a reinstall of
-          Chrome or the extension — though pointing the extension at a folder that already
+          the browser or the extension — though pointing the extension at a folder that already
           holds a backup does this on its own.
         </div>
       </div>

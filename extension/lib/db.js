@@ -1,5 +1,8 @@
 // IndexedDB: the picked directory handle, the cumulative page index, and the
 // individual visit timestamps behind it.
+// Do NOT rename: IndexedDB cannot rename a database, so a new name means an empty
+// one and every existing install silently loses its index. The name is internal -
+// scoped to this extension's own origin, never shown to anyone.
 const DB_NAME = "chrome-backup";
 const DB_VERSION = 2;
 

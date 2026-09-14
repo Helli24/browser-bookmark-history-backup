@@ -19,7 +19,7 @@ async function schedule() {
   return next.getTime();
 }
 
-// Machine was off or Chrome was closed? Run the missed backup now.
+// Machine was off or the browser was closed? Run the missed backup now.
 async function catchUpIfDue(reason) {
   const cfg = await getSettings();
   const { lastRun } = await chrome.storage.local.get("lastRun");

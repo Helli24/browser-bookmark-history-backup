@@ -33,7 +33,7 @@ async function render() {
     el.statusText.textContent = "Confirm folder access";
     el.statusSub.textContent = queue.length
       ? `${queue.length} backup(s) waiting – one click is enough.`
-      : "Chrome forgot the permission since the restart.";
+      : "The browser forgot the permission since the restart.";
     el.btnBackup.textContent = "Grant and back up";
   } else {
     const good = lastRun?.ok;
