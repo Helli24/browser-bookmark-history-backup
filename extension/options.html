@@ -99,6 +99,22 @@
   .scroll { max-height: 420px; overflow-y: auto; margin: 0 -8px; }
   .msg { margin-top: 12px; font-size: 13px; }
   .m-ok { color: var(--ok); } .m-err { color: var(--err); }
+  details.logbox > summary {
+    cursor: pointer; list-style: none; display: flex; align-items: center; gap: 8px;
+    font-size: 14px; font-weight: 600; letter-spacing: .02em;
+    text-transform: uppercase; color: var(--muted);
+  }
+  details.logbox > summary::-webkit-details-marker { display: none; }
+  details.logbox > summary::before { content: "B8"; display: inline-block; transition: transform .12s; }
+  details.logbox[open] > summary::before { transform: rotate(90deg); }
+  details.logbox > summary:hover { color: var(--accent); }
+  details.logbox > summary .count { text-transform: none; font-weight: 400; }
+  .log { width: 100%; border-collapse: collapse; font-size: 12.5px; font-variant-numeric: tabular-nums; }
+  .log td { padding: 4px 8px; border-bottom: 1px solid var(--border); white-space: nowrap; vertical-align: top; }
+  .log tr:last-child td { border-bottom: none; }
+  .log td.note { white-space: normal; color: var(--muted); width: 99%; }
+  .log td.bad { color: var(--err); }
+  .log .kind { color: var(--muted); }
   .banner {
     background: color-mix(in srgb, var(--warn) 12%, var(--card));
     border: 1px solid color-mix(in srgb, var(--warn) 40%, var(--border));
@@ -266,6 +282,18 @@
     <div class="row" style="margin-top:16px;border-top:1px solid var(--border);padding-top:16px">
       <div class="grow muted" id="statusLine" style="font-size:12.5px"></div>
     </div>
+  </section>
+
+  <section>
+    <details class="logbox" id="logBox">
+      <summary>Recent runs <span class="count" id="logCount"></span></summary>
+      <div class="muted" style="font-size:12.5px;margin:12px 0 8px">
+        What the extension did and when. The counts should only ever grow — a drop
+        without an upgrade line above it means something went wrong. Kept for the last
+        1,000 runs here and in <code>Indexuns.log</code>.
+      </div>
+      <div class="scroll"><table class="log"><tbody id="logRows"></tbody></table></div>
+    </details>
   </section>
 </div>
 <script type="module" src="options.js"></script>

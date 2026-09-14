@@ -51,7 +51,7 @@ const check = (name, got, want) => {
 };
 
 const base = "../extension/";
-const files = ["lib/db.js", "lib/collect.js", "lib/run.js", "lib/ui.js",
+const files = ["lib/db.js", "lib/collect.js", "lib/log.js", "lib/run.js", "lib/ui.js",
                "options.js", "popup.js", "sw.js"].map(f => base + f);
 const mods = {};
 for (const f of files) {
@@ -171,6 +171,18 @@ check("api and round-tripped timestamp are one visit", await D.countVisits(), 1)
 check("stored timestamp is a whole millisecond",
       Number.isInteger((await D.visitsForUrl(dupUrl))[0]), true);
 await D.clearVisits();
+
+// ---- run log ----
+const L = mods[base + "lib/log.js"];
+await L.clearLog();
+await L.addLog({ kind: "scheduled", ok: true, files: 4, pages: 10, visits: 20 });
+await L.addLog({ kind: "manual", ok: true, files: 7, pages: 11, visits: 25 });
+const entries = await L.getLog();
+check("log: keeps entries in order", entries.map(e => e.kind).join(","), "scheduled,manual");
+check("log: stamps a time", Number.isFinite(entries[0].at), true);
+const text = L.logToText(entries);
+check("log file is newest first", text.indexOf("manual") < text.indexOf("scheduled"), true);
+await L.clearLog();
 
 log("");
 log(fails ? `${fails} FAILURE(S)` : "ALL CHECKS PASSED");

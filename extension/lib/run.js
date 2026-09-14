@@ -1,8 +1,9 @@
 // Orchestration: settings, build the files, write them, prune old ones.
 import {
   loadDirHandle, mergePages, allPages, countPages,
-  mergeVisits, visitsInYear, countVisits
+  mergeVisits, visitsInYear, countVisits, takeMigrationNotes
 } from "./db.js";
+import { addLog, getLog, logToText, KINDS } from "./log.js";
 import {
   dateKey, collectBookmarks, collectHistory, collectAllHistory, historyToText,
   indexToCsv, indexToJsonl, visitsToJsonl
@@ -25,6 +26,7 @@ export const DEFAULTS = {
 };
 
 export const FOLDERS = { bookmarks: "Bookmarks", history: "History", index: "Index" };
+export const LOG_FILE = "runs.log";
 
 const retentionFor = cfg => ({
   [FOLDERS.bookmarks]: cfg.bookmarksRetentionDays || 0,
@@ -263,6 +265,11 @@ export async function runBackup(reason = "alarm") {
     };
     await chrome.storage.local.set({ lastRun, historyCoveredThrough: day });
     await badge("");
+    await record({
+      kind: reason, ok: true, files: lastRun.written,
+      pages: info.indexTotal, visits: info.visitsTotal,
+      note: info.bookmarksUnchanged ? "bookmarks unchanged" : ""
+    }, dir);
     return { ok: true, lastRun };
   } catch (e) {
     await queueFiles(files, day, e.message);
@@ -272,8 +279,29 @@ export async function runBackup(reason = "alarm") {
     };
     await chrome.storage.local.set({ lastRun, historyCoveredThrough: day });
     await badge("!");
+    // No dir to write to - that is usually the reason we are here.
+    await record({ kind: KINDS.queued, ok: false, note: e.message });
     return { ok: false, lastRun };
   }
+}
+
+// Records one run and mirrors the log into the backup folder. The log file is
+// written after the run rather than as part of it, so it can describe the run it
+// belongs to instead of always lagging one behind.
+export async function record(entry, dir = null) {
+  for (const note of takeMigrationNotes()) {
+    await addLog({ kind: KINDS.migrated, note });
+  }
+  const entries = await addLog(entry);
+  if (!dir) return entries;
+  try {
+    const idx = await dir.getDirectoryHandle(FOLDERS.index, { create: true });
+    const fh = await idx.getFileHandle(LOG_FILE, { create: true });
+    const w = await fh.createWritable();
+    await w.write(logToText(entries));
+    await w.close();
+  } catch { /* the run itself matters more than its footnote */ }
+  return entries;
 }
 
 export async function badge(text) {
@@ -327,14 +355,22 @@ export async function backfillAll(dir, onProgress = () => {}) {
   const today = dateKey();
   await chrome.storage.local.set({ historyCoveredThrough: today });
 
+  const pagesTotal = await countPages();
+  const visitsTotal = await countVisits();
+  await record({
+    kind: KINDS.imported, ok: true, files: files.length,
+    pages: pagesTotal, visits: visitsTotal,
+    note: `${byDay.size} days recovered from the browser`
+  }, dir);
+
   return {
     days: byDay.size,
     urls,
     visits: allVisits.length,
     added,
     files: files.length,
-    pagesTotal: await countPages(),
-    visitsTotal: await countVisits()
+    pagesTotal,
+    visitsTotal
   };
 }
 

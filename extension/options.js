@@ -1,5 +1,6 @@
 // Options page: target folder, what to back up, schedule, search, maintenance.
-import { getSettings, setSettings, importIndex, backfillAll, DEFAULTS } from "./lib/run.js";
+import { getSettings, setSettings, importIndex, backfillAll, record, DEFAULTS } from "./lib/run.js";
+import { getLog, KINDS } from "./lib/log.js";
 import { searchPages, countPages, countVisits, visitsForUrl } from "./lib/db.js";
 import {
   permissionState, pickFolder, regrantPermission, backupNow,
@@ -18,7 +19,8 @@ const el = {
   btnBackup: $("btnBackup"), backupMsg: $("backupMsg"),
   search: $("search"), searchInfo: $("searchInfo"), table: $("table"), hits: $("hits"),
   btnImport: $("btnImport"), importMsg: $("importMsg"), statusLine: $("statusLine"),
-  btnBackfill: $("btnBackfill"), backfillMsg: $("backfillMsg")
+  btnBackfill: $("btnBackfill"), backfillMsg: $("backfillMsg"),
+  logBox: $("logBox"), logCount: $("logCount"), logRows: $("logRows")
 };
 
 const n = x => (x || 0).toLocaleString("en-US");
@@ -79,6 +81,33 @@ async function render() {
       : `last attempt ${formatWhen(lastRun.at)} failed: ${lastRun.error}`);
   }
   el.statusLine.textContent = parts.join(" · ");
+  await renderLog();
+}
+
+// Newest first. Only the last 200 are drawn; runs.log has the rest.
+async function renderLog() {
+  const entries = await getLog();
+  el.logCount.textContent = entries.length ? `· ${n(entries.length)}` : "· none yet";
+
+  const rows = [...entries].reverse().slice(0, 200).map(e => {
+    const tr = document.createElement("tr");
+    const cell = (text, cls) => {
+      const td = document.createElement("td");
+      td.textContent = text;
+      if (cls) td.className = cls;
+      return td;
+    };
+    tr.append(
+      cell(formatWhen(e.at)),
+      cell(e.kind || "", e.ok === false ? "bad" : "kind"),
+      cell(e.files != null ? `${n(e.files)} files` : ""),
+      cell(e.pages != null ? `${n(e.pages)} pages` : ""),
+      cell(e.visits != null ? `${n(e.visits)} visits` : ""),
+      cell(e.note || "", "note")
+    );
+    return tr;
+  });
+  el.logRows.replaceChildren(...rows);
 }
 
 /* ---------------- Target folder ---------------- */
@@ -98,6 +127,11 @@ el.btnFolder.addEventListener("click", async () => {
       try {
         const r = await importIndex(dir);
         if (r.read) {
+          await record({
+            kind: KINDS.adopted, ok: true,
+            pages: r.total, visits: r.visitsTotal,
+            note: `picked up from ${dir.name}`
+          }, dir);
           setMsg(el.folderMsg,
             `Found an existing backup in this folder and restored it: ` +
             `${n(r.total)} pages and ${n(r.visitsTotal)} visits are back in the database.`,
@@ -354,6 +388,11 @@ el.btnImport.addEventListener("click", async () => {
     if (state !== "granted") dir = await regrantPermission();
 
     const r = await importIndex(dir);
+    await record({
+      kind: KINDS.restored, ok: true,
+      pages: r.total, visits: r.visitsTotal,
+      note: `${n(r.read)} index rows and ${n(r.visitsRead)} visits read from disk`
+    }, dir);
     setMsg(el.importMsg,
       `Restored ${n(r.read)} index rows (${n(r.added)} new to this database) and ` +
       `${n(r.visitsRead)} visits – it now holds ${n(r.total)} pages and ${n(r.visitsTotal)} visits.`,

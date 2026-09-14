@@ -6,6 +6,15 @@
 const DB_NAME = "chrome-backup";
 const DB_VERSION = 3;
 
+// Schema changes happen inside onupgradeneeded, which has no business talking to
+// chrome.storage. They leave a note here instead, and whoever opens the database
+// next picks it up and writes it to the run log - so a jump in the numbers always
+// has a visible cause sitting right above it.
+const migrationNotes = [];
+export function takeMigrationNotes() {
+  return migrationNotes.splice(0, migrationNotes.length);
+}
+
 function open() {
   return new Promise((resolve, reject) => {
     const req = indexedDB.open(DB_NAME, DB_VERSION);
@@ -31,6 +40,7 @@ function open() {
       // not visited twice.
       if (event.oldVersion < 3 && db.objectStoreNames.contains("visits")) {
         const s = req.transaction.objectStore("visits");
+        let rewritten = 0;
         const cur = s.openCursor();
         cur.onsuccess = () => {
           const c = cur.result;
@@ -40,9 +50,16 @@ function open() {
           if (t !== v.t) {
             c.delete();
             s.put({ url: v.url, t });
+            rewritten++;
           }
           c.continue();
         };
+        req.transaction.addEventListener("complete", () => {
+          migrationNotes.push(
+            `database upgraded to v3 - ${rewritten} visits with sub-millisecond ` +
+            `timestamps rewritten, merging their duplicates`
+          );
+        });
       }
     };
     req.onsuccess = () => resolve(req.result);

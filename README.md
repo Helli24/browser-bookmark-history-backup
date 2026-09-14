@@ -74,7 +74,8 @@ D:\Chrome Backup\
 └── Index\
     ├── page-index.csv                one row per URL, cumulative, opens in Excel
     ├── page-index.jsonl              same, machine-readable
-    └── visits-2026.jsonl             every individual visit, one file per year
+    ├── visits-2026.jsonl             every individual visit, one file per year
+    └── runs.log                      what ran and when, newest first
 ```
 
 ## Retention
@@ -163,6 +164,7 @@ it was supposed to read.
 | `sw.js` | Service worker: schedule, catch-up for missed runs, messaging |
 | `lib/collect.js` | Reads the browser APIs, produces the file formats |
 | `lib/db.js` | IndexedDB: directory handle and page index |
+| `lib/log.js` | The rolling run log |
 | `lib/run.js` | Orchestration: build, write, prune, queue |
 | `lib/ui.js` | Shared between popup and options page |
 | `options.*` | Settings, search, maintenance |
@@ -171,6 +173,23 @@ it was supposed to read.
 | `test/selftest.html` | Asserts the parts that break silently |
 
 Permissions: `bookmarks`, `history`, `storage`, `alarms`, `unlimitedStorage`.
+
+## The run log
+
+Settings → **Recent runs**, collapsed by default, and the same lines as
+`Index\runs.log`.
+
+One line per run: when, what kind, how many files, and the page and visit totals
+afterwards. The last 1,000 are kept in both places — roughly nine months at a few
+runs a day. It is a window, not an archive.
+
+The individual line is rarely interesting. The series is: **those totals should
+only ever grow.** A drop with no upgrade line above it means something is wrong,
+and that is the kind of fault that otherwise goes unnoticed until the day the
+backup is needed.
+
+Database migrations write their own line, so a jump in the numbers always has its
+explanation sitting directly above it.
 
 ## Known limits
 
