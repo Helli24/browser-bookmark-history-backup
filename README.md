@@ -168,6 +168,24 @@ python -m http.server 8731
 Then open `http://127.0.0.1:8731/test/selftest.html`. It needs no extension APIs,
 so it runs in any browser. `extension/` contains only what actually ships.
 
+## Extension ID
+
+Pinned to `pmdngebjilnkobcgdkhnioojcifdkipl` by the `key` field in the manifest.
+
+Chrome normally derives an unpacked extension's ID from its folder path, and the
+ID is what `chrome.storage` and IndexedDB hang off — so moving or renaming the
+folder would silently orphan every setting and the whole index. The `key` field
+is the public half of an RSA keypair; Chrome takes the first 16 bytes of its
+SHA-256 and maps each hex digit onto `a`–`p`. Same key, same ID, on any path and
+any machine.
+
+Only the public half is needed, and it is meant to be public — it sits in this
+repository. The private key is not used anywhere and is not committed.
+
+If this is ever uploaded to the Chrome Web Store, **remove the `key` field
+first**: the store issues its own key and its own ID, and a mismatching one is
+rejected.
+
 ## Versioning
 
 Calendar versions, `YYYY.M.D` — the version Chrome shows on the extension card
