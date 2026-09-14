@@ -10,6 +10,14 @@ Both browsers discard visit data after roughly 90 days. The **page index** this
 extension keeps does not: one row per URL with first visit, last visit and visit
 count, growing for as long as the extension is installed.
 
+That index is worth reading, so the settings page is not only settings:
+
+- a **search** over the whole URL including the path, and over the title, with
+  the individual timestamps behind every row
+- **statistics**: visits, distinct pages and newly found pages per day or week,
+  and the sites you spend your time on
+- an **activity log** of every run, restore and database change
+
 Everything runs locally. The extension has no network access and talks to no
 server.
 
