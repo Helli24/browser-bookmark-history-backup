@@ -8,7 +8,7 @@ const DB_VERSION = 3;
 
 // Schema changes happen inside onupgradeneeded, which has no business talking to
 // chrome.storage. They leave a note here instead, and whoever opens the database
-// next picks it up and writes it to the run log - so a jump in the numbers always
+// next picks it up and writes it to the activity log - so a jump in the numbers
 // has a visible cause sitting right above it.
 const migrationNotes = [];
 export function takeMigrationNotes() {

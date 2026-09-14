@@ -26,7 +26,8 @@ export const DEFAULTS = {
 };
 
 export const FOLDERS = { bookmarks: "Bookmarks", history: "History", index: "Index" };
-export const LOG_FILE = "runs.log";
+export const LOG_FILE = "activity.log";
+const OLD_LOG_FILE = "runs.log";   // superseded; removed on the next write
 
 const retentionFor = cfg => ({
   [FOLDERS.bookmarks]: cfg.bookmarksRetentionDays || 0,
@@ -300,6 +301,8 @@ export async function record(entry, dir = null) {
     const w = await fh.createWritable();
     await w.write(logToText(entries));
     await w.close();
+    // The same log under its old name - carried over above, so it only confuses.
+    try { await idx.removeEntry(OLD_LOG_FILE); } catch { /* never existed */ }
   } catch { /* the run itself matters more than its footnote */ }
   return entries;
 }

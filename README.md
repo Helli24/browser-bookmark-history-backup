@@ -75,7 +75,7 @@ D:\Chrome Backup\
     ├── page-index.csv                one row per URL, cumulative, opens in Excel
     ├── page-index.jsonl              same, machine-readable
     ├── visits-2026.jsonl             every individual visit, one file per year
-    └── runs.log                      what ran and when, newest first
+    └── activity.log                  every run, restore and migration
 ```
 
 ## Retention
@@ -164,7 +164,7 @@ it was supposed to read.
 | `sw.js` | Service worker: schedule, catch-up for missed runs, messaging |
 | `lib/collect.js` | Reads the browser APIs, produces the file formats |
 | `lib/db.js` | IndexedDB: directory handle and page index |
-| `lib/log.js` | The rolling run log |
+| `lib/log.js` | The rolling activity log |
 | `lib/run.js` | Orchestration: build, write, prune, queue |
 | `lib/ui.js` | Shared between popup and options page |
 | `options.*` | Settings, search, maintenance |
@@ -174,14 +174,15 @@ it was supposed to read.
 
 Permissions: `bookmarks`, `history`, `storage`, `alarms`, `unlimitedStorage`.
 
-## The run log
+## The activity log
 
-Settings → **Recent runs**, collapsed by default, and the same lines as
-`Index\runs.log`.
+Settings → **Recent activity**, collapsed by default, and the same lines as
+`Index\activity.log`.
 
-One line per run: when, what kind, how many files, and the page and visit totals
-afterwards. The last 1,000 are kept in both places — roughly nine months at a few
-runs a day. It is a window, not an archive.
+Not only backup runs: restores, one-off imports, schema migrations and failed
+attempts all get a line. When, what kind, how many files, and the page and visit
+totals afterwards. The last 1,000 are kept in both places — roughly nine months at
+a few runs a day. It is a window, not an archive.
 
 The individual line is rarely interesting. The series is: **those totals should
 only ever grow.** A drop with no upgrade line above it means something is wrong,

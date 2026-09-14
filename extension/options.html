@@ -105,7 +105,7 @@
     text-transform: uppercase; color: var(--muted);
   }
   details.logbox > summary::-webkit-details-marker { display: none; }
-  details.logbox > summary::before { content: "B8"; display: inline-block; transition: transform .12s; }
+  details.logbox > summary::before { content: "▸"; display: inline-block; transition: transform .12s; }
   details.logbox[open] > summary::before { transform: rotate(90deg); }
   details.logbox > summary:hover { color: var(--accent); }
   details.logbox > summary .count { text-transform: none; font-weight: 400; }
@@ -286,11 +286,11 @@
 
   <section>
     <details class="logbox" id="logBox">
-      <summary>Recent runs <span class="count" id="logCount"></span></summary>
+      <summary>Recent activity <span class="count" id="logCount"></span></summary>
       <div class="muted" style="font-size:12.5px;margin:12px 0 8px">
-        What the extension did and when. The counts should only ever grow — a drop
-        without an upgrade line above it means something went wrong. Kept for the last
-        1,000 runs here and in <code>Indexuns.log</code>.
+        Every backup, restore and database change, newest first. The counts should only
+        ever grow — a drop with no upgrade line above it means something went wrong.
+        The last 1,000 entries, here and in <code>Index\activity.log</code>.
       </div>
       <div class="scroll"><table class="log"><tbody id="logRows"></tbody></table></div>
     </details>

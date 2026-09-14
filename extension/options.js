@@ -84,7 +84,7 @@ async function render() {
   await renderLog();
 }
 
-// Newest first. Only the last 200 are drawn; runs.log has the rest.
+// Newest first. Only the last 200 are drawn; activity.log has the rest.
 async function renderLog() {
   const entries = await getLog();
   el.logCount.textContent = entries.length ? `· ${n(entries.length)}` : "· none yet";

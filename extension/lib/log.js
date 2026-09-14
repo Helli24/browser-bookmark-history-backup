@@ -1,4 +1,5 @@
-// A rolling record of what the extension did, and when.
+// A rolling record of what the extension did, and when. Not only backup runs -
+// restores, schema migrations and failed attempts belong here just as much.
 //
 // The point is not the individual line but the series: the counts should only
 // ever grow, so a drop that nobody ordered becomes visible instead of being
@@ -40,7 +41,7 @@ export const clearLog = () => chrome.storage.local.set({ runLog: [] });
 // Newest first, so opening the file lands on what just happened.
 export function logToText(entries) {
   const header = [
-    "Run log - newest first",
+    "Activity log - newest first",
     `${entries.length} entries, oldest kept: ${MAX_ENTRIES}`,
     "=".repeat(78),
     ""
