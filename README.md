@@ -20,7 +20,7 @@ server.
 3. **Load unpacked** → select the `extension/` folder
 4. Click the icon → **Settings** → **Choose folder…**
 
-The folder can be anywhere, including a second partition, e.g. `F:\Chrome_Backup`.
+The folder can be anywhere, including a second partition, e.g. `D:\Chrome Backup`.
 Chrome will ask for permission once.
 
 Only the folder's name is shown afterwards, never its full path — the File System
@@ -31,7 +31,7 @@ want to see at a glance which folder is configured.
 ## What ends up in the folder
 
 ```
-F:\Chrome_Backup\
+D:\Chrome Backup\
 ├── Bookmarks\
 │   ├── bookmarks-2026-09-13.json     full tree, easy to diff
 │   └── bookmarks-2026-09-13.html     Netscape format, importable into Chrome
