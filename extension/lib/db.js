@@ -4,12 +4,12 @@
 // one and every existing install silently loses its index. The name is internal -
 // scoped to this extension's own origin, never shown to anyone.
 const DB_NAME = "chrome-backup";
-const DB_VERSION = 2;
+const DB_VERSION = 3;
 
 function open() {
   return new Promise((resolve, reject) => {
     const req = indexedDB.open(DB_NAME, DB_VERSION);
-    req.onupgradeneeded = () => {
+    req.onupgradeneeded = event => {
       const db = req.result;
       if (!db.objectStoreNames.contains("handles")) db.createObjectStore("handles");
       if (!db.objectStoreNames.contains("pages")) {
@@ -22,6 +22,27 @@ function open() {
       if (!db.objectStoreNames.contains("visits")) {
         const s = db.createObjectStore("visits", { keyPath: ["url", "t"] });
         s.createIndex("t", "t");
+      }
+      // v3: the browser reports visitTime as a double with a sub-millisecond
+      // fraction, so a visit stored straight from the API and the same visit read
+      // back from an export - where Date.parse() gives whole milliseconds - landed
+      // under two different keys. Truncate the existing rows; flooring only ever
+      // moves a key backwards, so the rewritten row sorts behind the cursor and is
+      // not visited twice.
+      if (event.oldVersion < 3 && db.objectStoreNames.contains("visits")) {
+        const s = req.transaction.objectStore("visits");
+        const cur = s.openCursor();
+        cur.onsuccess = () => {
+          const c = cur.result;
+          if (!c) return;
+          const v = c.value;
+          const t = Math.floor(v.t);
+          if (t !== v.t) {
+            c.delete();
+            s.put({ url: v.url, t });
+          }
+          c.continue();
+        };
       }
     };
     req.onsuccess = () => resolve(req.result);
@@ -148,8 +169,11 @@ export function mergeVisits(rows) {
   return run("visits", "readwrite", (store, set) => {
     for (const row of rows) {
       if (!row.url || !row.t) continue;
-      years.add(new Date(row.t).getFullYear());
-      store.put({ url: row.url, t: row.t });
+      // Last line of defence: every writer normalises, but this is the only place
+      // a key is actually formed, so it normalises too.
+      const t = Math.floor(row.t);
+      years.add(new Date(t).getFullYear());
+      store.put({ url: row.url, t });
     }
     set(years);
   });

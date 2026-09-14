@@ -12,6 +12,12 @@ export function fmtDateTime(ms) {
   return `${dateKey(d)} ${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())}`;
 }
 
+// visitTime arrives as a double: the browser counts in microseconds and the
+// conversion to milliseconds leaves a fraction behind. Anything that ends up in a
+// key has to be truncated first, or the same visit read back from an exported file
+// - where Date.parse() yields whole milliseconds - becomes a second, distinct row.
+const ms = t => Math.floor(t);
+
 function hostOf(url) {
   try { return new URL(url).hostname.replace(/^www\./, ""); } catch { return ""; }
 }
@@ -93,9 +99,10 @@ export async function collectHistory(startTime, endTime) {
       if (!v.visitTime) continue;
       // Keep every timestamp the browser hands us, not just the ones inside the window.
       // On the first run that backfills months of visit history in one go.
-      allVisits.push({ url: it.url, t: v.visitTime });
-      if (v.visitTime >= startTime && v.visitTime < endTime) {
-        visits.push({ t: v.visitTime, title: it.title || "", url: it.url });
+      const t = ms(v.visitTime);
+      allVisits.push({ url: it.url, t });
+      if (t >= startTime && t < endTime) {
+        visits.push({ t, title: it.title || "", url: it.url });
       }
     }
 
@@ -103,15 +110,15 @@ export async function collectHistory(startTime, endTime) {
     // the one inside the window. That backdates the first visit as far as possible on
     // the very first run. Browsers drop visit rows after ~90 days, so from then on our
     // own index is the only place that remembers.
-    let first = it.lastVisitTime || Date.now();
-    for (const v of raw) if (v.visitTime && v.visitTime < first) first = v.visitTime;
+    let first = ms(it.lastVisitTime || Date.now());
+    for (const v of raw) if (v.visitTime && ms(v.visitTime) < first) first = ms(v.visitTime);
 
     index.push({
       url: it.url,
       host: hostOf(it.url),
       title: it.title || "",
       first,
-      last: it.lastVisitTime || first,
+      last: ms(it.lastVisitTime || first),
       count: it.visitCount || 1
     });
   }
@@ -185,15 +192,16 @@ export async function collectAllHistory({ days = 120, onProgress = () => {} } = 
     let raw = [];
     try { raw = await chrome.history.getVisits({ url }); } catch { /* URL gone meanwhile */ }
 
-    let first = m.last || now;
+    let first = ms(m.last || now);
     for (const v of raw) {
       if (!v.visitTime) continue;
-      if (v.visitTime < first) first = v.visitTime;
-      allVisits.push({ url, t: v.visitTime });
+      const t = ms(v.visitTime);
+      if (t < first) first = t;
+      allVisits.push({ url, t });
 
-      const key = dateKey(new Date(v.visitTime));
+      const key = dateKey(new Date(t));
       if (!byDay.has(key)) byDay.set(key, []);
-      byDay.get(key).push({ t: v.visitTime, title: m.title, url });
+      byDay.get(key).push({ t, title: m.title, url });
     }
 
     index.push({
@@ -201,7 +209,7 @@ export async function collectAllHistory({ days = 120, onProgress = () => {} } = 
       host: hostOf(url),
       title: m.title,
       first,
-      last: m.last || first,
+      last: ms(m.last || first),
       count: m.count || 1
     });
 

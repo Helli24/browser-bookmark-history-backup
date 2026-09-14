@@ -35,7 +35,7 @@
   ];
   window.FAKE_VISITS = {
     "https://github.com/anthropics/claude-code": [
-      { visitTime: T - 200 * 864e5 }, { visitTime: T - 3600e3 }, { visitTime: T }
+      { visitTime: T - 200 * 864e5 + 0.456 }, { visitTime: T - 3600e3 }, { visitTime: T }
     ],
     "https://www.example.com/path?q=1": [{ visitTime: T - 3600e3 }]
   };
@@ -152,6 +152,25 @@ const bmHtml = (await C.collectBookmarks()).html;
 check("sha256: stable", await R.sha256(bmHtml), await R.sha256(bmHtml));
 check("sha256: reacts to a change",
       (await R.sha256(bmHtml)) === (await R.sha256(bmHtml + " ")), false);
+
+// ---- sub-millisecond timestamps must not split one visit into two rows ----
+// The browser reports visitTime as a double; an export round-trips it through
+// Date.parse(), which yields whole milliseconds. If the store keeps both, the
+// same visit exists under two keys - counted twice, exported twice, and merged
+// back into one on the next import.
+check("collectHistory floors visit times",
+      h.allVisits.every(v => Number.isInteger(v.t)), true);
+check("fraction does not change the exported timestamp",
+      new Date(h.index[0].first).toISOString(), "2026-02-25T10:00:00.000Z");
+
+await D.clearVisits();
+const dupUrl = "https://example.com/same-visit";
+await D.mergeVisits([{ url: dupUrl, t: 1781646709868.123 }]);   // straight from the API
+await D.mergeVisits([{ url: dupUrl, t: 1781646709868 }]);       // read back from an export
+check("api and round-tripped timestamp are one visit", await D.countVisits(), 1);
+check("stored timestamp is a whole millisecond",
+      Number.isInteger((await D.visitsForUrl(dupUrl))[0]), true);
+await D.clearVisits();
 
 log("");
 log(fails ? `${fails} FAILURE(S)` : "ALL CHECKS PASSED");
