@@ -23,6 +23,29 @@ server.
 
 ![The settings page](docs/screenshots/settings.jpg)
 
+## Sync is not a backup
+
+Browser sync copies your bookmarks between your devices. That is a different job
+from keeping them, and the difference only shows on the day it matters.
+
+Sync replicates **whatever happens**, including the things you did not mean. Drag
+a folder into another one by accident, delete a bookmark you thought was a
+duplicate, hand the laptop to someone who tidies up — and within seconds every
+other device agrees. There is no version history behind it: no "restore last
+week's bookmarks", nothing to compare against, no way to find out when that folder
+disappeared. A profile that has to be reset, or an account you lose access to,
+takes the whole collection with it just as faithfully.
+
+A backup is a **second copy that does not follow along**. This one writes a dated
+snapshot into a folder you own, keeps the ones from the last 30 days, and only
+writes a new file when something actually changed — so the folder ends up being a
+record of *when* you edited your bookmarks. Restoring is a file and two clicks in
+the browser's own import.
+
+Browsing history has the same gap for a different reason: it is not synced far,
+and both browsers throw visits away after about 90 days by design. Nothing is
+broken there — it is simply not built to remember, and this is.
+
 ## How this was built
 
 Nearly all the code here was written by [Claude Code](https://claude.com/claude-code),
