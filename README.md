@@ -139,9 +139,20 @@ are ignored:
 | `jira` | hits in the host, in the path, or in the title |
 | `"facebook.com"` | that page and nothing below it — see below |
 
-Right-clicking a page or a link offers **"When was I first here?"**, which opens
+Right-clicking a page or a link offers **"Have I been here before?"**, which opens
 the settings page with that address already quoted in the search box — the
 question usually turns up while browsing, not while in the settings.
+
+The index only knows what a backup has written, so a page opened since last night
+is not in it yet, and answering "no matches" there would be a lie about somewhere
+you were an hour ago. Asked from the context menu, a miss therefore goes on to the
+browser's own history, and **takes that page into the index on the spot** — same
+rows tonight's backup would have collected, merged the same way, so that run finds
+nothing left to do. The answer then arrives as an ordinary result row with its
+timestamps behind it.
+
+Only from the menu. A quoted query typed by hand is someone looking around, and
+looking should not write; it reports what the browser knows instead.
 
 That entry is the one string of this extension that appears inside the browser's
 own menus, so it is the only one that follows the *browser's* language instead of

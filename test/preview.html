@@ -3,6 +3,8 @@
   // Throwaway harness: renders the real options page against a stubbed browser
   // API so the layout can be looked at outside an extension. Not shipped.
   const S = { settings: {}, runLog: [] };
+  const fakeVisits = url =>
+    JSON.parse(new URLSearchParams(location.search).get("visits") || "{}")[url] || [];
   // ?seed={"lastOkAt":...} fills storage before the page's own code reads it, so
   // states that only show up after days of not running can be looked at now.
   try {
@@ -17,6 +19,11 @@
       remove: k => { for (const x of [].concat(k)) delete S[x]; return Promise.resolve(); }
     }},
     alarms: { create: () => {}, get: () => Promise.resolve(null) },
+    history: {
+      getVisits: ({ url }) => Promise.resolve(fakeVisits(url).map(t => ({ visitTime: t }))),
+      search: ({ text }) => Promise.resolve(fakeVisits(text).length
+        ? [{ url: text, title: "Faked page", visitCount: fakeVisits(text).length }] : [])
+    },
     action: { setBadgeText: () => Promise.resolve(), setBadgeBackgroundColor: () => Promise.resolve() },
     runtime: { onMessage: { addListener() {} }, getURL: p => p },
     contextMenus: { create() {}, removeAll(cb) { cb && cb(); }, onClicked: { addListener() {} } },

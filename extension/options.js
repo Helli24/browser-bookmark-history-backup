@@ -6,9 +6,10 @@ import {
 } from "./lib/run.js";
 import { getLog, KINDS } from "./lib/log.js";
 import {
-  searchPages, countPages, countVisits, visitsForUrl, collectStats, bucketRange
+  searchPages, countPages, countVisits, visitsForUrl, collectStats, bucketRange,
+  mergePages, mergeVisits
 } from "./lib/db.js";
-import { dayNumber } from "./lib/collect.js";
+import { dayNumber, hostOf } from "./lib/collect.js";
 import {
   permissionState, pickFolder, regrantPermission, backupNow,
   formatWhen, formatDate, timeAgo
@@ -271,6 +272,8 @@ el.btnStaleBackup.addEventListener("click", async () => {
 let searchTimer = null;
 let sortBy = "first";
 let newestFirst = false;
+// True only for the query the context menu opened this page with.
+let fromMenu = false;
 
 el.search.addEventListener("input", () => {
   clearTimeout(searchTimer);
@@ -351,22 +354,11 @@ async function doSearch() {
       (total > hits.length ? `, showing the ${hits.length} ${end}` : "")
     : "No matches."));
 
-  // An exact search that finds nothing is usually one character of query string
-  // away from the page that is there. Say so, and offer the wider search - this
-  // is where the context menu lands, and a bare "No matches" would be wrong twice.
   const quoted = q.length > 2 && q.startsWith('"') && q.endsWith('"');
   if (!total && quoted) {
-    const loose = q.slice(1, -1).trim();
-    const alt = await searchPages(loose, 1, { from, to, dateField });
-    if (alt.total) {
-      el.searchInfo.append(` This exact address is not in the index, but ${n(alt.total)} `,
-                           alt.total === 1 ? "page contains it. " : "pages contain it. ");
-      const btn = document.createElement("button");
-      btn.type = "button";
-      btn.textContent = "Search without quotes";
-      btn.addEventListener("click", () => { el.search.value = loose; doSearch(); });
-      el.searchInfo.append(btn);
-    }
+    // Returns true when it has already re-run the search - the rows below are
+    // stale by then, and drawing them would wipe what that run just put up.
+    if (await explainExactMiss(q.slice(1, -1).trim(), { from, to, dateField })) return;
   }
 
   el.table.hidden = hits.length === 0;
@@ -416,6 +408,82 @@ async function doSearch() {
     tr.append(when, ago, count, url);
     return tr;
   }));
+}
+
+// Writes one page and its visits into the index from what the browser still
+// holds. Nothing is invented: these are the same rows a backup would collect
+// tonight, and both merges are idempotent, so that run finds nothing to redo.
+async function adoptFromBrowser(url, times) {
+  let title = "", count = times.length;
+  try {
+    const found = await chrome.history.search({ text: url, startTime: 0, maxResults: 50 });
+    const exact = found.find(h => h.url === url);
+    if (exact) {
+      title = exact.title || "";
+      // The browser's own counter reaches back past the timestamps it kept.
+      count = Math.max(exact.visitCount || 0, times.length);
+    }
+  } catch { /* the title is a nicety, the dates are the point */ }
+
+  await mergePages([{
+    url, host: hostOf(url), title,
+    first: times[0], last: times[times.length - 1], count
+  }]);
+  await mergeVisits(times.map(t => ({ url, t })));
+}
+
+// "No matches" is the wrong answer to a question asked from the context menu.
+// The index only knows what a backup has written, so a page opened since last
+// night is missing from it while the browser remembers it perfectly well - and
+// telling someone they have never been somewhere they were an hour ago is worse
+// than saying nothing. So ask the browser before giving up.
+async function explainExactMiss(url, range) {
+  if (/^https?:\/\//i.test(url)) {
+    let visits = [];
+    try { visits = await chrome.history.getVisits({ url }); } catch { /* not a URL it knows */ }
+    if (visits.length) {
+      const times = visits.map(v => Math.floor(v.visitTime)).sort((a, b) => a - b);
+
+      // Asked from the context menu, take the page into the index there and then,
+      // so the answer arrives as an ordinary row with its timestamps behind it
+      // rather than as a sentence about one. Only from the menu: a query typed
+      // by hand is someone looking around, and looking should not write.
+      if (fromMenu) {
+        await adoptFromBrowser(url, times);
+        fromMenu = false;                 // the re-run must not loop back in here
+        await doSearch();
+        el.searchInfo.append(" Taken into the index just now, from the browser's own history.");
+        return true;
+      }
+
+      // A definite answer replaces the line rather than trailing after it: "No
+      // matches. You were here twice" is two contradictory sentences.
+      el.searchInfo.replaceChildren(document.createTextNode(
+        `Yes — ${n(times.length)} ${times.length === 1 ? "visit" : "visits"}, ` +
+        `the first on ${formatDate(times[0])}, the last ${timeAgo(times[times.length - 1])}. ` +
+        `Not in the index yet; the next backup will add it.`
+      ));
+      return;
+    }
+  }
+
+  // Not in the index and not in the browser's own history either. That is an
+  // answer, and a more useful one than "no matches".
+  const alt = await searchPages(url, 1, range);
+  if (!alt.total) {
+    el.searchInfo.replaceChildren(document.createTextNode(
+      "No — neither the index nor the browser has ever seen this address."
+    ));
+    return;
+  }
+
+  el.searchInfo.append(` This exact address is not in the index, but ${n(alt.total)} `,
+                       alt.total === 1 ? "page contains it. " : "pages contain it. ");
+  const btn = document.createElement("button");
+  btn.type = "button";
+  btn.textContent = "Search without quotes";
+  btn.addEventListener("click", () => { el.search.value = url; doSearch(); });
+  el.searchInfo.append(btn);
 }
 
 // Expands one result row into the individual visit timestamps.
@@ -692,6 +760,7 @@ const startOfDay = t => {
 // ?q= comes from the context menu, already quoted for an exact match. Scrolled to
 // and focused, because the page was opened for this one question.
 const asked = new URLSearchParams(location.search).get("q");
+fromMenu = !!asked;
 if (asked) {
   el.search.value = asked;
   el.search.scrollIntoView({ block: "center" });

@@ -1,10 +1,10 @@
 {
   "menuPage": {
-    "message": "Wann war ich hier zum ersten Mal?",
+    "message": "War ich hier schon einmal?",
     "description": "Context menu entry on a page. Opens the index search for that address."
   },
   "menuLink": {
-    "message": "Wann war ich zum ersten Mal auf dieser Seite?",
+    "message": "War ich auf dieser Seite schon einmal?",
     "description": "Context menu entry on a link. Opens the index search for the link target."
   }
 }
