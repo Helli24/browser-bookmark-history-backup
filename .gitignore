@@ -1,5 +1,16 @@
+# Build output and signing material
 *.zip
 *.crx
 *.pem
 dist/
+
+# Anything the extension itself writes. A backup folder or a single exported
+# file dropped in here to look at holds real browsing history, and must never be
+# one "git add -A" away from a public commit.
 DB/
+*.log
+history-*.txt
+bookmarks-*.json
+bookmarks-*.html
+page-index.*
+visits-*.jsonl
