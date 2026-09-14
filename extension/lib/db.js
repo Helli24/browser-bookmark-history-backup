@@ -6,17 +6,33 @@
 const DB_NAME = "chrome-backup";
 const DB_VERSION = 3;
 
-// Schema changes happen inside onupgradeneeded, which has no business talking to
-// chrome.storage. They leave a note here instead, and whoever opens the database
-// next picks it up and writes it to the activity log - so a jump in the numbers
-// has a visible cause sitting right above it.
-const migrationNotes = [];
-export function takeMigrationNotes() {
-  return migrationNotes.splice(0, migrationNotes.length);
+// Schema changes happen inside onupgradeneeded, which cannot await anything. They
+// park a note in storage instead, and whoever writes the activity log next picks
+// it up - so a jump in the numbers has a visible cause sitting right above it.
+//
+// Storage rather than a variable in this module, because the popup, the options
+// page and the service worker each run their own copy of this file. The context
+// that happens to open the database first - usually whichever window the user
+// clicked after the update - is rarely the one that writes the log afterwards, and
+// a note left in module scope dies with it.
+const NOTES_KEY = "migrationNotes";
+
+async function noteMigration(text) {
+  const { [NOTES_KEY]: notes = [] } = await chrome.storage.local.get(NOTES_KEY);
+  notes.push(text);
+  await chrome.storage.local.set({ [NOTES_KEY]: notes });
+}
+
+export async function takeMigrationNotes() {
+  const { [NOTES_KEY]: notes = [] } = await chrome.storage.local.get(NOTES_KEY);
+  if (notes.length) await chrome.storage.local.remove(NOTES_KEY);
+  return notes;
 }
 
 function open() {
   return new Promise((resolve, reject) => {
+    // Set while a migration note is on its way into storage.
+    let noted = null;
     const req = indexedDB.open(DB_NAME, DB_VERSION);
     req.onupgradeneeded = event => {
       const db = req.result;
@@ -55,14 +71,22 @@ function open() {
           c.continue();
         };
         req.transaction.addEventListener("complete", () => {
-          migrationNotes.push(
+          noted = noteMigration(
             `database upgraded to v3 - ${rewritten} visits with sub-millisecond ` +
             `timestamps rewritten, merging their duplicates`
           );
         });
       }
     };
-    req.onsuccess = () => resolve(req.result);
+    // The version-change transaction completes before this fires, so the note is
+    // already under way. Wait for it: a service worker can be torn down the moment
+    // the work it was woken for is done, and an unwritten note would be gone for
+    // good - the upgrade only ever happens once.
+    req.onsuccess = () => {
+      const db = req.result;
+      if (noted) noted.catch(() => {}).then(() => resolve(db));
+      else resolve(db);
+    };
     req.onerror = () => reject(req.error);
   });
 }

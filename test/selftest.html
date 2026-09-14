@@ -7,7 +7,8 @@
     storage: { local: {
       get: k => Promise.resolve(typeof k === "string" ? { [k]: store[k] } :
             Array.isArray(k) ? Object.fromEntries(k.map(x => [x, store[x]])) : { ...store }),
-      set: o => { Object.assign(store, o); return Promise.resolve(); }
+      set: o => { Object.assign(store, o); return Promise.resolve(); },
+      remove: k => { for (const x of [].concat(k)) delete store[x]; return Promise.resolve(); }
     }},
     bookmarks: { getTree: () => Promise.resolve(FAKE_TREE) },
     history: {
@@ -182,6 +183,18 @@ check("log: keeps entries in order", entries.map(e => e.kind).join(","), "schedu
 check("log: stamps a time", Number.isFinite(entries[0].at), true);
 const text = L.logToText(entries);
 check("log file is newest first", text.indexOf("manual") < text.indexOf("scheduled"), true);
+await L.clearLog();
+
+// A migration note has to survive the context that produced it. The upgrade runs
+// wherever the database is opened first - often the popup, which is closed again
+// long before the next backup writes the log.
+await chrome.storage.local.set({ migrationNotes: ["upgraded somewhere else"] });
+await R.flushMigrationNotes();
+const afterFlush = await L.getLog();
+check("a migration note from another context reaches the log",
+      afterFlush.map(e => `${e.kind}:${e.note}`).join(""), "migrated:upgraded somewhere else");
+check("a logged migration note is not logged twice",
+      (await D.takeMigrationNotes()).length, 0);
 await L.clearLog();
 
 log("");

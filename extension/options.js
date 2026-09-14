@@ -1,5 +1,7 @@
 // Options page: target folder, what to back up, schedule, search, maintenance.
-import { getSettings, setSettings, importIndex, backfillAll, record, DEFAULTS } from "./lib/run.js";
+import {
+  getSettings, setSettings, importIndex, backfillAll, record, flushMigrationNotes, DEFAULTS
+} from "./lib/run.js";
 import { getLog, KINDS } from "./lib/log.js";
 import { searchPages, countPages, countVisits, visitsForUrl } from "./lib/db.js";
 import {
@@ -86,6 +88,7 @@ async function render() {
 
 // Newest first. Only the last 200 are drawn; activity.log has the rest.
 async function renderLog() {
+  await flushMigrationNotes();
   const entries = await getLog();
   el.logCount.textContent = entries.length ? `· ${n(entries.length)}` : "· none yet";
 

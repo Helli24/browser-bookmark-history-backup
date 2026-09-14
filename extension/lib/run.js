@@ -286,13 +286,20 @@ export async function runBackup(reason = "alarm") {
   }
 }
 
+// Moves whatever a schema migration parked in storage into the log. Called before
+// every recorded run, and by the options page when it draws the log - otherwise an
+// upgrade would sit there unexplained until the next backup happens to run.
+export async function flushMigrationNotes() {
+  for (const note of await takeMigrationNotes()) {
+    await addLog({ kind: KINDS.migrated, note });
+  }
+}
+
 // Records one run and mirrors the log into the backup folder. The log file is
 // written after the run rather than as part of it, so it can describe the run it
 // belongs to instead of always lagging one behind.
 export async function record(entry, dir = null) {
-  for (const note of takeMigrationNotes()) {
-    await addLog({ kind: KINDS.migrated, note });
-  }
+  await flushMigrationNotes();
   const entries = await addLog(entry);
   if (!dir) return entries;
   try {
