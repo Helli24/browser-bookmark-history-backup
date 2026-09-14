@@ -28,10 +28,25 @@ target folder, or they will overwrite each other's index files.
 
 ## Install
 
-1. Open `chrome://extensions` — in Edge, `edge://extensions`
-2. Turn on **Developer mode** (top right)
-3. **Load unpacked** → select the `extension/` folder
-4. Click the icon → **Settings** → **Choose folder…**
+No Web Store, no account, no installer — you point the browser at a folder.
+
+1. Download the ZIP from [Releases](../../releases), or clone this repository
+2. **Extract it somewhere permanent** — not your Downloads folder. The browser
+   reads the files from wherever you put them, every day, so that folder has to
+   stay put.
+3. Open `chrome://extensions` — in Edge, `edge://extensions`
+4. Turn on **Developer mode** (top right)
+5. **Load unpacked** → select the extracted `bookmark-history-backup` folder (the
+   one containing `manifest.json`); from a clone, select `extension/`
+6. Click the icon → **Settings** → **Choose folder…**
+
+The browser will warn that the extension can read your browsing history. It can —
+that is the entire job. Nothing leaves your machine.
+
+**To update:** download the new ZIP, extract it over the same folder, then press
+the reload arrow on the extension's card. Do **not** press Remove and add it
+again: removing deletes the extension's storage, which is where your settings and
+the whole page index live. Overwrite-and-reload keeps everything.
 
 The folder can be anywhere, including a second partition, e.g. `D:\Chrome Backup`.
 The browser will ask for permission once.
