@@ -19,7 +19,9 @@
     margin: 0; padding: 32px 24px 64px; background: var(--bg); color: var(--text);
     font: 14px/1.55 system-ui, "Segoe UI", sans-serif;
   }
-  .wrap { max-width: 780px; margin: 0 auto; }
+  /* Wide enough that a long URL in the result table gets a line to itself; the
+     prose blocks cap themselves well before this. */
+  .wrap { max-width: 1000px; margin: 0 auto; }
   h1 { font-size: 20px; margin: 0 0 4px; }
   .sub { color: var(--muted); margin: 0 0 28px; }
   section {
@@ -82,8 +84,7 @@
   th .sort:hover { color: var(--text); }
   th .sort.active { color: var(--text); }
   th .sort span { display: inline-block; width: 1em; text-align: center; }
-  .filters { font-size: 13px; color: var(--muted); }
-  .filters input[type=date] { margin-left: 6px; }
+  .filters { font-size: 13px; color: var(--muted); gap: 8px; }
   .filters select {
     font: inherit; padding: 6px 8px; border-radius: 7px;
     border: 1px solid var(--border); background: var(--bg); color: var(--text);
@@ -253,15 +254,18 @@
     <div class="row">
       <input type="search" id="search" placeholder="e.g. github.com/torvalds/linux  ·  matches the whole URL including the path" autocomplete="off">
     </div>
+    <!-- Deliberately no <label> around the fields: it would put the words into the
+         click target, and clicking "from" focuses a date field without visibly
+         doing anything. Only the controls themselves react. -->
     <div class="row filters">
-      <label class="inline">
-        <select id="dateField">
-          <option value="first">First visit</option>
-          <option value="last">Last visit</option>
-        </select>
-        from <input type="date" id="dateFrom">
-      </label>
-      <label class="inline">until <input type="date" id="dateTo"></label>
+      <select id="dateField">
+        <option value="first">First visit</option>
+        <option value="last">Last visit</option>
+      </select>
+      <span>from</span>
+      <input type="date" id="dateFrom" aria-label="From date">
+      <span>until</span>
+      <input type="date" id="dateTo" aria-label="Until date">
       <button type="button" id="btnClearDates" hidden>Clear dates</button>
     </div>
     <div class="row muted" id="searchInfo" style="font-size:12.5px"></div>
