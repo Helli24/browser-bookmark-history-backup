@@ -202,7 +202,7 @@ tidiness: nothing is counted until you open it, so the page itself loads exactly
 as fast as it would without it. The result is kept while the page stays
 open, and each window is counted once.
 
-![The statistics box](docs/screenshots/statistics.png)
+![The statistics box](docs/screenshots/statistics.jpg)
 
 One window switch applies to everything in the box — `7 · 30 · 90 · 365 days ·
 everything` — so the chart and the ranking underneath can never disagree about
