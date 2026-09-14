@@ -386,3 +386,15 @@ between 0 and 65535, and leading zeros are rejected. So `2026.9.13`, never
 not by date, and unpadded numbers sort wrongly there: `9` comes after `1`, so
 `v2026.9.14.9` would sit above `v2026.9.14.12`, and `v2026.9.9` above
 `v2026.9.14`. The padding is only in the tag, because the manifest may not have it.
+
+## License
+
+[MIT](LICENSE) — use it, change it, ship it, no strings attached beyond keeping
+the copyright notice.
+
+Worth reading the last paragraph of it though, the one in capitals: the software
+comes with no warranty of any kind. That is the normal disclaimer, and it is worth
+taking seriously for something whose job is to hold your data. It backs up; it
+does not promise.
+
+No dependencies, so there is no third-party licence to honour besides this one.

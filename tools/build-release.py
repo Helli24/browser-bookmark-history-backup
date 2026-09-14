@@ -40,7 +40,7 @@ def main():
         "This file is only here so you can see which version you extracted.\n"
         "Compare it with the version shown on the extension's card in\n"
         "chrome://extensions - if they differ, press the reload arrow there.\n\n"
-        "https://github.com/Helli24/chrome-backup\n"
+        "https://github.com/Helli24/browser-bookmark-history-backup\n"
     )
 
     written = []
