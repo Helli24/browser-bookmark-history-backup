@@ -21,6 +21,8 @@ That index is worth reading, so the settings page is not only settings:
 Everything runs locally. The extension has no network access and talks to no
 server.
 
+![The settings page](docs/screenshots/settings.jpg)
+
 ## How this was built
 
 Nearly all the code here was written by [Claude Code](https://claude.com/claude-code),
@@ -91,6 +93,8 @@ Access API deliberately withholds that from extensions, and there is no way arou
 it. The line underneath is a free-text note; put the path there yourself if you
 want to see at a glance which folder is configured.
 
+![The popup](docs/screenshots/popup.jpg)
+
 ## What ends up in the folder
 
 ```
@@ -106,6 +110,8 @@ D:\Chrome Backup\
     ├── visits-2026.jsonl             every individual visit, one file per year
     └── activity.log                  every run, restore and migration
 ```
+
+![The backup folder in Explorer](docs/screenshots/backup-folder.jpg)
 
 ## Retention
 
@@ -143,6 +149,10 @@ Right-clicking a page or a link puts **"Have I been here before?"** in the conte
 menu. It opens the settings page with that address already quoted in the search
 box — the question usually turns up while browsing, not while in the settings.
 
+![The context menu entry](docs/screenshots/context-menu.png)
+
+*Shown here in a German browser: that one entry follows the browser's language, everything else is English.*
+
 The index only knows what a backup has written, so a page opened since last night
 is not in it yet, and answering "no matches" there would be a lie about somewhere
 you were an hour ago. Asked from the context menu, a miss therefore goes on to the
@@ -160,6 +170,8 @@ the extension's English: `_locales/en` and `_locales/de` today, anything else
 falls back to English. Adding a language is a directory with one JSON file in it,
 and the self-test fails if a message is missing from any of them — Chrome does not
 complain about that, it just draws an empty menu entry.
+
+![Search results with one row expanded](docs/screenshots/search.jpg)
 
 **Quotes mean the whole URL.** `facebook.com` matches every photo, message and
 profile you ever opened there; `"facebook.com"` matches the front page alone. The
@@ -189,6 +201,8 @@ Second to last on the settings page, collapsed by default — and that is not ju
 tidiness: nothing is counted until you open it, so the page itself loads exactly
 as fast as it would without it. The result is kept while the page stays
 open, and each window is counted once.
+
+![The statistics box](docs/screenshots/statistics.png)
 
 One window switch applies to everything in the box — `7 · 30 · 90 · 365 days ·
 everything` — so the chart and the ranking underneath can never disagree about
