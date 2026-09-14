@@ -176,12 +176,14 @@ await D.clearVisits();
 // ---- search: order and date range ----
 // Three pages first seen on three different days, deliberately merged in an order
 // that matches neither, since the store is keyed by url.
+// The last visits deliberately run in a different order than the first ones, so
+// sorting by the wrong one cannot pass by accident.
 await D.clearPages();
 const day = d => Date.UTC(2026, 5, d, 12, 0, 0);
 await D.mergePages([
-  { url: "https://example.com/b", title: "B", host: "example.com", first: day(11), last: day(11), count: 1 },
-  { url: "https://example.com/a", title: "A", host: "example.com", first: day(10), last: day(10), count: 1 },
-  { url: "https://example.com/c", title: "C", host: "example.com", first: day(12), last: day(12), count: 1 }
+  { url: "https://example.com/b", title: "B", host: "example.com", first: day(11), last: day(12), count: 1 },
+  { url: "https://example.com/a", title: "A", host: "example.com", first: day(10), last: day(14), count: 1 },
+  { url: "https://example.com/c", title: "C", host: "example.com", first: day(12), last: day(13), count: 1 }
 ]);
 const titles = r => r.hits.map(h => h.title).join("");
 
@@ -203,6 +205,29 @@ check("search: date range includes both ends", titles(oneDay), "B");
 check("search: date range without a term", oneDay.total, 1);
 check("search: date range and term together",
       titles(await D.searchPages("/c", 300, { from: day(10) })), "C");
+
+check("search: sorts by last visit",
+      titles(await D.searchPages("example.com", 300, { sortBy: "last", newestFirst: true })), "ACB");
+// The range follows the field it names while the order stays where it was: A and
+// C are the two last seen from the 13th on, still listed by first visit.
+check("search: a range on last visit leaves the order alone",
+      titles(await D.searchPages("", 300, { dateField: "last", from: day(13) })), "AC");
+check("search: the same range on first visit selects other rows",
+      titles(await D.searchPages("", 300, { dateField: "first", from: day(12) })), "C");
+
+// Quotes ask for that one page, not everything below it.
+await D.mergePages([
+  { url: "https://www.example.com/", title: "root", host: "example.com",
+    first: day(9), last: day(9), count: 1 }
+]);
+check("search: unquoted matches the pages below too",
+      (await D.searchPages("example.com")).total, 4);
+check("search: quoted matches the page itself",
+      titles(await D.searchPages('"example.com"')), "root");
+check("search: quoted forgives the trailing slash",
+      titles(await D.searchPages('"https://www.example.com/"')), "root");
+check("search: quoted does not match a page below",
+      (await D.searchPages('"example.com/a"')).total, 1);
 await D.clearPages();
 
 // ---- run log ----

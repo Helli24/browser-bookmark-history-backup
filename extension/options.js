@@ -21,7 +21,7 @@ const el = {
   btnBackup: $("btnBackup"), backupMsg: $("backupMsg"),
   search: $("search"), searchInfo: $("searchInfo"), table: $("table"), hits: $("hits"),
   dateFrom: $("dateFrom"), dateTo: $("dateTo"), btnClearDates: $("btnClearDates"),
-  btnSort: $("btnSort"), sortArrow: $("sortArrow"),
+  dateField: $("dateField"),
   btnImport: $("btnImport"), importMsg: $("importMsg"), statusLine: $("statusLine"),
   btnBackfill: $("btnBackfill"), backfillMsg: $("backfillMsg"),
   logBox: $("logBox"), logCount: $("logCount"), logRows: $("logRows")
@@ -227,6 +227,7 @@ el.btnBackup.addEventListener("click", doBackup);
 /* ---------------- Search ---------------- */
 
 let searchTimer = null;
+let sortBy = "first";
 let newestFirst = false;
 
 el.search.addEventListener("input", () => {
@@ -237,20 +238,37 @@ el.search.addEventListener("input", () => {
 // A partly typed date is meaningless, so wait for change rather than input.
 el.dateFrom.addEventListener("change", doSearch);
 el.dateTo.addEventListener("change", doSearch);
+el.dateField.addEventListener("change", doSearch);
 
 el.btnClearDates.addEventListener("click", () => {
   el.dateFrom.value = el.dateTo.value = "";
   doSearch();
 });
 
-el.btnSort.addEventListener("click", () => {
-  newestFirst = !newestFirst;
-  el.sortArrow.textContent = newestFirst ? "↓" : "↑";
-  el.btnSort.title = newestFirst
-    ? "Newest first – click for oldest first"
-    : "Oldest first – click for newest first";
-  doSearch();
-});
+// Clicking the column that is already sorted turns it around; clicking the other
+// one switches to it and starts at the end people mean by it - the first time you
+// saw something, the last time you were there.
+for (const btn of document.querySelectorAll("th .sort")) {
+  btn.addEventListener("click", () => {
+    const field = btn.dataset.field;
+    if (field === sortBy) newestFirst = !newestFirst;
+    else { sortBy = field; newestFirst = field === "last"; }
+    markSort();
+    doSearch();
+  });
+}
+
+function markSort() {
+  for (const btn of document.querySelectorAll("th .sort")) {
+    const on = btn.dataset.field === sortBy;
+    btn.classList.toggle("active", on);
+    btn.querySelector("span").textContent = on ? (newestFirst ? "↓" : "↑") : "";
+    btn.title = on
+      ? `Sorted ${newestFirst ? "newest" : "oldest"} first – click to turn around`
+      : `Sort by ${btn.dataset.field === "first" ? "first" : "last"} visit`;
+  }
+}
+markSort();
 
 // The inputs hand over a plain YYYY-MM-DD, which both ends of the range have to
 // grow into a whole local day: "until the 14th" has to include the 14th.
@@ -270,7 +288,8 @@ async function doSearch() {
     el.hits.replaceChildren();
     const count = await countPages();
     el.searchInfo.textContent = count
-      ? `${n(count)} pages searchable.`
+      ? `${n(count)} pages searchable. Quotes match the whole URL – "facebook.com" ` +
+        "finds that one page instead of everything below it."
       : "The index is still empty – run one backup and it will be there.";
     return;
   }
@@ -282,7 +301,8 @@ async function doSearch() {
     return;
   }
 
-  const { hits, total } = await searchPages(q, 300, { from, to, newestFirst });
+  const dateField = el.dateField.value;
+  const { hits, total } = await searchPages(q, 300, { from, to, dateField, sortBy, newestFirst });
   const end = newestFirst ? "newest" : "oldest";
   el.searchInfo.textContent = total
     ? `${n(total)} matches${total > hits.length ? `, showing the ${hits.length} ${end}` : ""}`
@@ -296,9 +316,15 @@ async function doSearch() {
     when.className = "when";
     when.textContent = formatDate(r.first);
 
+    // The relative time sits on the last visit, where "yesterday" is the answer
+    // to a question people actually ask.
     const ago = document.createElement("td");
-    ago.className = "when muted";
-    ago.textContent = timeAgo(r.first);
+    ago.className = "when";
+    ago.textContent = formatDate(r.last);
+    const rel = document.createElement("span");
+    rel.className = "rel";
+    rel.textContent = timeAgo(r.last);
+    ago.appendChild(rel);
 
     const count = document.createElement("td");
     count.className = "num";

@@ -162,9 +162,9 @@ export const countPages = () =>
 // match in memory: a row that cannot beat the current last one is dropped where it
 // is found. Sorting the whole result and then slicing would do the same thing, but
 // the number of matches is not bounded by anything the user can see.
-function topRows(limit, newestFirst) {
+function topRows(limit, newestFirst, field) {
   const rows = [];
-  const before = (a, b) => (newestFirst ? a.first > b.first : a.first < b.first);
+  const before = (a, b) => (newestFirst ? a[field] > b[field] : a[field] < b[field]);
   return {
     rows,
     offer(v) {
@@ -180,19 +180,33 @@ function topRows(limit, newestFirst) {
   };
 }
 
+// A trailing slash is noise in a comparison: someone asking for the front page of
+// a site types it about half the time.
+const noSlash = s => (s.length > 1 && s.endsWith("/") ? s.slice(0, -1) : s);
+
 // Substring search over the normalised URL (path included) and the title.
 // Full cursor scan - a few hundred thousand rows are milliseconds in IndexedDB,
 // and it beats maintaining a token index for an occasional lookup.
 //
-// `from` and `to` are milliseconds and bound the *first* visit, the same date the
-// results are sorted by: the question is which pages entered the index in that
-// window, not which ones were open again during it. Oldest first by default,
-// because that is usually what is being asked.
+// A term in double quotes is matched against the whole URL instead, which is the
+// only way to ask for a site's front page: "facebook.com" cannot otherwise be
+// separated from the thousands of pages underneath it.
+//
+// `sortBy` and `dateField` are "first" or "last" and are deliberately separate:
+// changing the order should not silently change what a date range means.
 export function searchPages(term, limit = 300, opts = {}) {
-  const { from = null, to = null, newestFirst = false } = opts;
-  const q = searchKey(String(term || "").trim());
+  const {
+    from = null, to = null, dateField = "first",
+    sortBy = "first", newestFirst = false
+  } = opts;
+
+  const raw = String(term || "").trim();
+  const exact = raw.length > 2 && raw.startsWith('"') && raw.endsWith('"');
+  const q = searchKey(exact ? raw.slice(1, -1).trim() : raw);
+  const qExact = noSlash(q);
+
   return run("pages", "readonly", (store, set) => {
-    const top = topRows(limit, newestFirst);
+    const top = topRows(limit, newestFirst, sortBy);
     let total = 0;
     const cur = store.openCursor();
     cur.onsuccess = () => {
@@ -202,9 +216,13 @@ export function searchPages(term, limit = 300, opts = {}) {
         return;
       }
       const v = c.value;
-      const inRange = (from === null || v.first >= from) && (to === null || v.first <= to);
+      const d = v[dateField];
+      const inRange = (from === null || d >= from) && (to === null || d <= to);
       const k = v.k || searchKey(v.url);
-      if (inRange && (!q || k.includes(q) || (v.title || "").toLowerCase().includes(q))) {
+      const hit = exact
+        ? noSlash(k) === qExact
+        : !q || k.includes(q) || (v.title || "").toLowerCase().includes(q);
+      if (inRange && hit) {
         total++;
         top.offer(v);
       }

@@ -129,17 +129,25 @@ are ignored:
 | `github.com/torvalds` | `https://github.com/torvalds/linux` |
 | `/pull/` | every pull request page you ever had open |
 | `jira` | hits in the host, in the path, or in the title |
+| `"facebook.com"` | that page and nothing below it — see below |
 
-Results are sorted by first visit, oldest first — usually the answer you came for.
-Click the **First visit** header to turn that around. Click the visit count to
-expand a row into the individual timestamps.
+**Quotes mean the whole URL.** `facebook.com` matches every photo, message and
+profile you ever opened there; `"facebook.com"` matches the front page alone. The
+scheme, `www.` and a trailing slash are ignored on both sides, so
+`"https://www.facebook.com/"` is the same query.
 
-The two date fields narrow the results to pages **first seen** in that window,
-with either end optional: a `from` alone means "since then", a `to` alone means
-"before that". They work without a search term as well, which answers a different
-question — what did I find that week. The dates bound the first visit, not every
-visit, so a page you discovered in 2024 and reopened yesterday is not in
-yesterday's range.
+Each row carries two dates: **first visit** and **last visit**. Click either
+header to sort by it, click the one already sorted to turn it around. First visit
+is the default, oldest first, because that is what the index exists for — but
+"what did I have open yesterday" is a question about the other column. Click the
+visit count to expand a row into the individual timestamps.
+
+The two date fields narrow the results to a window, with either end optional: a
+`from` alone means "since then", a `to` alone means "before that". The dropdown
+in front of them says which of the two dates they apply to, deliberately
+independent of the sort order — otherwise clicking a header would silently change
+what a filter you had already set means. They work without a search term as well,
+which answers a different question: what did I find that week.
 
 Browsers keep counting visits after discarding the underlying timestamps, so that
 total can exceed the number of timestamps anyone still has. When that happens the

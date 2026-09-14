@@ -80,9 +80,15 @@
     padding: 0; cursor: pointer;
   }
   th .sort:hover { color: var(--text); }
+  th .sort.active { color: var(--text); }
   th .sort span { display: inline-block; width: 1em; text-align: center; }
   .filters { font-size: 13px; color: var(--muted); }
   .filters input[type=date] { margin-left: 6px; }
+  .filters select {
+    font: inherit; padding: 6px 8px; border-radius: 7px;
+    border: 1px solid var(--border); background: var(--bg); color: var(--text);
+  }
+  td.when .rel { color: var(--muted); margin-left: 8px; }
   td { padding: 7px 8px; border-bottom: 1px solid var(--border); vertical-align: top; }
   tr:last-child td { border-bottom: none; }
   td.when { white-space: nowrap; font-variant-numeric: tabular-nums; }
@@ -248,16 +254,22 @@
       <input type="search" id="search" placeholder="e.g. github.com/torvalds/linux  ·  matches the whole URL including the path" autocomplete="off">
     </div>
     <div class="row filters">
-      <label class="inline">First visit from <input type="date" id="dateFrom"></label>
+      <label class="inline">
+        <select id="dateField">
+          <option value="first">First visit</option>
+          <option value="last">Last visit</option>
+        </select>
+        from <input type="date" id="dateFrom">
+      </label>
       <label class="inline">until <input type="date" id="dateTo"></label>
       <button type="button" id="btnClearDates" hidden>Clear dates</button>
     </div>
     <div class="row muted" id="searchInfo" style="font-size:12.5px"></div>
     <div class="scroll"><table id="table" hidden>
       <thead><tr>
-        <th colspan="2">
-          <button type="button" class="sort" id="btnSort">First visit <span id="sortArrow">↑</span></button>
-        </th><th class="num">Visits</th><th>Page</th>
+        <th><button type="button" class="sort" data-field="first">First visit <span></span></button></th>
+        <th><button type="button" class="sort" data-field="last">Last visit <span></span></button></th>
+        <th class="num">Visits</th><th>Page</th>
       </tr></thead>
       <tbody id="hits"></tbody>
     </table></div>
