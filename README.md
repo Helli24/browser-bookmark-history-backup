@@ -13,6 +13,27 @@ count, growing for as long as the extension is installed.
 Everything runs locally. The extension has no network access and talks to no
 server.
 
+## How this was built
+
+Nearly all the code here was written by [Claude Code](https://claude.com/claude-code),
+Anthropic's coding agent, using Claude Opus 5, over two long sessions and working
+from a conversation rather than a specification. Direction, design decisions and
+testing against real data came from the repository owner. Every commit names Claude
+as co-author.
+
+Worth stating plainly, because the split shows in what went wrong. Three bugs that
+would have cost data were caught before they could, and not one of them by a test:
+
+- a retention rule that, together with only writing bookmarks when they change,
+  would eventually have pruned the last remaining backup
+- the first run after picking a folder exporting an empty database straight over
+  the index it was about to read
+- visits stored twice, because the browser reports `visitTime` with a
+  sub-millisecond fraction while an exported timestamp comes back as a whole one
+
+Each surfaced from someone asking what would happen in a case nobody had tried.
+The tests came afterwards, and hold those cases down now.
+
 ## Browsers
 
 Tested in **Chrome** and **Edge**. Other Chromium browsers — Brave, Vivaldi, Opera —
@@ -259,24 +280,3 @@ Two caveats from Chrome's manifest rules: each component must be an integer
 between 0 and 65535, and leading zeros are rejected. So `2026.9.13`, never
 `2026.09.13`. For a second release on the same day, append a fourth component:
 `2026.9.13.1`.
-
-## How this was built
-
-Nearly all the code here was written by [Claude Code](https://claude.com/claude-code)
-over one long session, working from a conversation rather than a specification.
-Direction, design decisions and testing against real data came from the human side.
-
-Worth saying plainly, because the split shows in what went wrong. Three bugs that
-would have cost data were caught before they could, and none of them by a test:
-
-- a retention rule that, combined with only writing bookmarks when they change,
-  would eventually have pruned the last remaining backup
-- the first run after picking a folder exporting an empty database straight over
-  the index it was about to read
-- visits stored twice, because the browser reports `visitTime` with a
-  sub-millisecond fraction while an exported timestamp round-trips as a whole one
-
-Each surfaced from someone asking what would happen in a case nobody had tried.
-The tests came afterwards, and now hold those cases down.
-
-Commits carry a `Co-Authored-By` line saying the same thing.
