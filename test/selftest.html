@@ -296,6 +296,33 @@ for (const loc of LOCALES) {
         Object.keys(msgs).filter(k => !asked.includes(k)).join(",") || "none extra", "none extra");
 }
 
+// ---- context menu installation ----
+// Chrome clears and creates asynchronously and refuses a second item with the
+// same id. Two overlapping installs - onStartup and onInstalled firing together -
+// used to interleave into exactly that.
+const SW = mods[base + "sw.js"];
+const menuItems = new Set();
+let duplicateCreates = 0;
+const realMenus = chrome.contextMenus;
+chrome.contextMenus = {
+  removeAll(cb) { setTimeout(() => { menuItems.clear(); cb && cb(); }, 0); },
+  create(props, cb) {
+    setTimeout(() => {
+      if (menuItems.has(props.id)) {
+        duplicateCreates++;
+        chrome.runtime.lastError = { message: `Cannot create item with duplicate id ${props.id}` };
+      } else menuItems.add(props.id);
+      cb && cb();
+      chrome.runtime.lastError = undefined;
+    }, 0);
+  },
+  onClicked: { addListener() {} }
+};
+await Promise.all([SW.installMenu(), SW.installMenu()]);
+check("menu: overlapping installs create no duplicate", duplicateCreates, 0);
+check("menu: both entries exist exactly once", [...menuItems].sort().join(","), "lookupLink,lookupPage");
+chrome.contextMenus = realMenus;
+
 // ---- overdue detection ----
 // The one failure this tool has to notice about itself.
 await chrome.storage.local.remove(["lastOkAt", "lastRun"]);

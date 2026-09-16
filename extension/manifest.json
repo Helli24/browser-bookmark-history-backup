@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Bookmark & History Backup",
-  "version": "2026.9.15.2",
+  "version": "2026.9.16",
   "description": "Bookmarks and history into a folder you choose, once a day. Keeps a searchable index of every page, long after the browser forgets.",
   "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEA1/SZbpeKMs9xCKgpCc0Agx2wSc8wwajOBlJTJWMYb+iDGP48fVF95QH88/9Spc0V3BVEENORKpF92fm7+PfncLY5iT80JhtqbSnfRDz0dDohAJSuvHxQuO70OPx10AP1SFlmVudt4htg4KL5Cec9ZmES0biZ0ykjm3Aoh+wVkEFuXP7X84b/yUPPJBTekqoceinhyf7RUECyDPVSh1IUM+EfHzmW6/Oe+2/NJNx5KK77h17tfH8UP9boXBj0wtA7rEa6BlJLbnHjDSpsdBM+TysXfKBp/my53TjfwVI8k++VDHvuyoCD3KNWoyw+immtbH+9WM5wLmPemQZSbCcU+QIDAQAB",
   "default_locale": "en",

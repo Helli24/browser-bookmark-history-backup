@@ -54,19 +54,36 @@ const MENU_LINK = "lookupLink";
 // The only string this extension puts inside the browser's own menus, between
 // Back and Reload - so it is the only one that follows the browser's language
 // rather than the extension's. _locales/ holds the wordings.
-function installMenu() {
-  chrome.contextMenus.removeAll(() => {
-    chrome.contextMenus.create({
-      id: MENU_PAGE,
-      title: chrome.i18n.getMessage("menuPage"),
-      contexts: ["page"]
+//
+// Clearing and creating are separate asynchronous steps, so two calls that overlap
+// interleave: both clear, then both create, and the second create of each id
+// fails. That does happen - starting the browser after the extension's files have
+// changed fires onStartup and onInstalled in the same worker. Each call is queued
+// behind the previous one, so one finishes before the next begins.
+let menuQueue = Promise.resolve();
+
+export function installMenu() {
+  menuQueue = menuQueue.then(() => new Promise(resolve => {
+    chrome.contextMenus.removeAll(() => {
+      // Read lastError in every callback: an unread one is reported as an error
+      // against the extension, even when the menu ends up exactly as intended.
+      const done = () => {
+        if (chrome.runtime.lastError) console.warn("context menu:", chrome.runtime.lastError.message);
+      };
+      done();
+      chrome.contextMenus.create({
+        id: MENU_PAGE,
+        title: chrome.i18n.getMessage("menuPage"),
+        contexts: ["page"]
+      }, done);
+      chrome.contextMenus.create({
+        id: MENU_LINK,
+        title: chrome.i18n.getMessage("menuLink"),
+        contexts: ["link"]
+      }, () => { done(); resolve(); });
     });
-    chrome.contextMenus.create({
-      id: MENU_LINK,
-      title: chrome.i18n.getMessage("menuLink"),
-      contexts: ["link"]
-    });
-  });
+  }));
+  return menuQueue;
 }
 
 chrome.contextMenus.onClicked.addListener(async info => {
@@ -85,7 +102,7 @@ chrome.runtime.onInstalled.addListener(async () => {
 });
 
 chrome.runtime.onStartup.addListener(async () => {
-  installMenu();                        // menus do not survive a browser restart
+  installMenu();                        // cheap, and queued behind onInstalled if both fire
   await schedule();
   await restoreBadge();
   await catchUpIfDue("catch-up");
