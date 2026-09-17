@@ -20,7 +20,8 @@ export const KINDS = {
   imported: "imported",      // one-off pull from the browser
   restored: "restored",      // read back from the backup folder
   adopted: "adopted",        // same, but triggered by picking the folder
-  migrated: "migrated"       // database schema change
+  migrated: "migrated",      // database schema change
+  started: "browser start"   // so a failure can be told apart from a restart
 };
 
 export async function addLog(entry) {

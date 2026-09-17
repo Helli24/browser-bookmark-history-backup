@@ -1,5 +1,6 @@
 // Background service worker: schedule, catch-up for missed runs, UI requests.
-import { getSettings, setSettings, runBackup, badge, staleness } from "./lib/run.js";
+import { getSettings, setSettings, runBackup, badge, staleness, record } from "./lib/run.js";
+import { KINDS } from "./lib/log.js";
 import { searchPages, countPages, loadDirHandle } from "./lib/db.js";
 import { dateKey } from "./lib/collect.js";
 
@@ -104,9 +105,25 @@ chrome.runtime.onInstalled.addListener(async () => {
 chrome.runtime.onStartup.addListener(async () => {
   installMenu();                        // cheap, and queued behind onInstalled if both fire
   await schedule();
+  await noteStart();
   await restoreBadge();
   await catchUpIfDue("catch-up");
 });
+
+// A line for every browser start, with the folder permission as it is found. The
+// permission is known to be dropped by a restart - what the log could not show
+// until now is whether anything else drops it while the browser keeps running,
+// because a failed run and a restart looked exactly alike from the outside.
+async function noteStart() {
+  let state = "no folder chosen";
+  try {
+    const dir = await loadDirHandle();
+    if (dir) state = await dir.queryPermission({ mode: "readwrite" });
+  } catch (e) {
+    state = `could not be read: ${e.message}`;
+  }
+  await record({ kind: KINDS.started, note: `folder permission: ${state}` });
+}
 
 chrome.alarms.onAlarm.addListener(async a => {
   if (a.name !== ALARM) return;

@@ -160,8 +160,12 @@ export async function getGrantedDir() {
     e.code = "NO_DIR";
     throw e;
   }
-  if (await dir.queryPermission({ mode: "readwrite" }) !== "granted") {
-    const e = new Error("Folder access has to be confirmed once after a browser restart.");
+  // The state goes into the message rather than a guess at what caused it. A
+  // restart is the known reason; whether anything else revokes it during a
+  // session is exactly what the log is there to show.
+  const state = await dir.queryPermission({ mode: "readwrite" });
+  if (state !== "granted") {
+    const e = new Error(`Folder permission is "${state}" - it takes one click to confirm.`);
     e.code = "NO_PERMISSION";
     throw e;
   }
