@@ -296,6 +296,27 @@ for (const loc of LOCALES) {
         Object.keys(msgs).filter(k => !asked.includes(k)).join(",") || "none extra", "none extra");
 }
 
+// ---- a failed run leaves its days pending ----
+// The queue is a bounded buffer; if a failure also marked the days as covered,
+// a dropped queue entry would take that day's history with it for good.
+await chrome.storage.local.set({ historyCoveredThrough: "2026-09-14" });
+await R.queueFiles([{ folder: "History", name: "history-2026-09-17.txt", content: "x" }],
+                   "2026-09-17", "no permission");
+const { historyCoveredThrough: marker } = await chrome.storage.local.get("historyCoveredThrough");
+check("a queued failure does not move the covered-through marker", marker, "2026-09-14");
+await chrome.storage.local.remove(["historyCoveredThrough", "queue"]);
+
+// ---- the log names the run that failed ----
+// Every failure used to be filed as "queued", so a failed 03:00 and a failed
+// click read the same - which is what hid three nights of the schedule not
+// running at all.
+const LOG = mods[base + "lib/log.js"];
+check("the scheduled kind matches the one the worker passes", LOG.KINDS.scheduled, "scheduled");
+check("the catch-up kind matches too", LOG.KINDS.catchup, "catch-up");
+const swSource = await (await fetch(base + "sw.js")).text();
+check("the worker uses the shared constants, not its own spelling",
+      /runBackup\(KINDS\.scheduled\)/.test(swSource) && !/runBackup\("schedule"\)/.test(swSource), true);
+
 // ---- context menu installation ----
 // Chrome clears and creates asynchronously and refuses a second item with the
 // same id. Two overlapping installs - onStartup and onInstalled firing together -

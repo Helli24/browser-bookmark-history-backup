@@ -284,10 +284,17 @@ export async function runBackup(reason = "alarm") {
       at: Date.now(), day, ok: false, reason,
       error: e.message, code: e.code || "", info
     };
-    await chrome.storage.local.set({ lastRun, historyCoveredThrough: day });
+    // Deliberately NOT advancing historyCoveredThrough: nothing was written, so
+    // those days are still pending. Marking them done would leave the queue as
+    // the only copy, and the queue is a bounded buffer that drops its oldest
+    // entry. Left pending, the next run that succeeds rebuilds them from the
+    // browser - up to MAX_CATCHUP_DAYS back.
+    await chrome.storage.local.set({ lastRun });
     await badge("!");
-    // No dir to write to - that is usually the reason we are here.
-    await record({ kind: KINDS.queued, ok: false, note: e.message });
+    // The kind says which run it was, not just that something was queued: a
+    // failed 03:00 and a failed click are very different findings, and the log
+    // could not tell them apart.
+    await record({ kind: reason, ok: false, note: `queued - ${e.message}` });
     return { ok: false, lastRun };
   }
 }

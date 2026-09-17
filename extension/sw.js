@@ -107,7 +107,7 @@ chrome.runtime.onStartup.addListener(async () => {
   await schedule();
   await noteStart();
   await restoreBadge();
-  await catchUpIfDue("catch-up");
+  await catchUpIfDue(KINDS.catchup);
 });
 
 // A line for every browser start, with the folder permission as it is found. The
@@ -127,7 +127,7 @@ async function noteStart() {
 
 chrome.alarms.onAlarm.addListener(async a => {
   if (a.name !== ALARM) return;
-  await runBackup("schedule");
+  await runBackup(KINDS.scheduled);
   await schedule();                     // recompute so the wall-clock time survives DST
   await restoreBadge();
 });
