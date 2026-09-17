@@ -1,8 +1,9 @@
 # Bookmark & History Backup
 
 A Manifest V3 extension for **Chrome and Edge** that writes your bookmarks and
-browsing history into a folder of your choice once a day — and answers the one
-question the browser's own history cannot:
+browsing history into a folder of your choice — daily, though the browser has a
+say in the timing ([the catch](#the-catch-the-nightly-run-usually-cannot-write)) —
+and answers the one question the browser's own history cannot:
 
 > "When was I first on `github.com/xyz`?"
 
@@ -285,18 +286,34 @@ wait for. It runs whenever the service worker wakes up, browser start included.
 The case worth catching is the schedule not running at all, and that is precisely
 the case where nothing else would raise a hand.
 
-## The one caveat
+## The catch: the nightly run usually cannot write
 
-The browser forgets the folder permission when it **restarts**. The scheduled
-run then cannot write to disk without asking.
+Read this before relying on the schedule. **In practice the 3 a.m. run does not
+reach the disk**, and the extension is honest about it rather than quiet.
 
-Nothing is lost when that happens: the finished backup goes into a queue, the icon
-gets a `!`, and the next click writes everything out. If your browser stays open for
-days at a time you will never see it.
+The permission to write into your folder is granted to a *page* of this extension,
+and the browser takes it back as soon as none is open. The settings page and the
+popup are pages; the background worker is not, and it is shut down after about
+thirty seconds of idleness anyway. At three in the morning there is nothing left
+holding the permission, so the write is refused.
 
-Getting rid of this entirely would require a native messaging host — a small local
-script the browser launches. That is deliberately *not* part of this project,
-because it needs setup on every machine.
+Measured over three consecutive nights on a machine left running: three failures,
+and every successful backup in that log was one somebody clicked.
+
+**Nothing is lost when that happens.** The backup is built all the same and goes
+into a queue, the icon gets a `!`, and the next time you open the extension
+everything is written out — including the daily history logs for the days in
+between, which are rebuilt from the browser if the queue ever drops them.
+
+So the honest description is: the schedule decides *what* gets collected, and your
+next visit decides *when* it lands on disk. If you open the extension every few
+days, you will never notice. If you do not open it for three days, it says so —
+see [When it stops](#when-it-stops).
+
+Getting rid of this would take a native messaging host — a small local program the
+browser launches, which is not bound by this rule. That is deliberately *not* part
+of this project, because it needs setting up on every machine, and the whole point
+here is that there is nothing to install.
 
 ## Restoring
 
