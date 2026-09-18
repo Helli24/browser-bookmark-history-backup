@@ -297,18 +297,25 @@ popup are pages; the background worker is not, and it is shut down after about
 thirty seconds of idleness anyway. At three in the morning there is nothing left
 holding the permission, so the write is refused.
 
-Measured over three consecutive nights on a machine left running: three failures,
-and every successful backup in that log was one somebody clicked.
+Measured on a machine left running overnight: three nights with no page of the
+extension open, three failures. A fourth night with the settings page left open
+in an ordinary tab: the 3 a.m. run went through. And the browser start the next
+morning found the permission back at "prompt" — a restart clears it as well.
+
+**What works: leave the settings page open in a tab.** Nothing else is needed; the
+tab does not have to be in front, and pinning it keeps it out of the way. The
+browser still has to have been told once since it last started, so after a restart
+the first thing is one click on the banner.
 
 **Nothing is lost when that happens.** The backup is built all the same and goes
 into a queue, the icon gets a `!`, and the next time you open the extension
 everything is written out — including the daily history logs for the days in
 between, which are rebuilt from the browser if the queue ever drops them.
 
-So the honest description is: the schedule decides *what* gets collected, and your
-next visit decides *when* it lands on disk. If you open the extension every few
-days, you will never notice. If you do not open it for three days, it says so —
-see [When it stops](#when-it-stops).
+Without that tab, the honest description is: the schedule decides *what* gets
+collected, and your next visit decides *when* it lands on disk. If you open the
+extension every few days, you will never notice. If you do not open it for three
+days, it says so — see [When it stops](#when-it-stops).
 
 Getting rid of this would take a native messaging host — a small local program the
 browser launches, which is not bound by this rule. That is deliberately *not* part
