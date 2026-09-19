@@ -98,8 +98,8 @@ No Web Store, no account, no installer — you point the browser at a folder.
 5. **Load unpacked** → select the extracted `bookmark-history-backup` folder (the
    one containing `manifest.json`); from a clone, select `extension/`
 6. Click the icon → **Settings** → **Choose folder…** and allow access
-7. **Close the settings tab and open it again.** The banner **Confirm folder
-   access** appears; click it and choose **Allow on every visit**. The browser only
+7. **Close the settings tab and open it again.** The browser asks about the folder
+   right away, this time with more answers: choose **Allow on every visit**. It only
    offers that answer the second time it asks, and without it the nightly run
    cannot write ([why](#the-one-choice-that-matters-allow-on-every-visit)).
 
@@ -314,9 +314,10 @@ still there after three browser starts, one of them after a restart of the compu
 
 So the first grant, when you pick the folder, always behaves like *Allow this time*.
 That is why step 7 of [Install](#install) is there: close the settings tab, open it
-again, and the banner **Confirm folder access** brings up the question with all
-three answers. Missed it? The banner comes back after the next restart, and says
-which answer to pick. Once *Allow on every visit* is chosen, it does not come back.
+again, and the browser asks on its own, now with all three answers — tried on a
+fresh install in Edge. Missed it? The banner **Confirm folder access** on the
+settings page brings the question back and says which answer to pick. Once *Allow
+on every visit* is chosen, neither comes back.
 
 To check or take the permission back: `chrome://settings/content/filesystem`, or
 `edge://settings/content/filesystem` in Edge.
