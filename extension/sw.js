@@ -110,19 +110,23 @@ chrome.runtime.onStartup.addListener(async () => {
   await catchUpIfDue(KINDS.catchup);
 });
 
-// A line for every browser start, with the folder permission as it is found.
-// "prompt" here means the last grant was "Allow this time", which a restart
-// clears; "granted" means "Allow on every visit", which survives it. Without this
-// line a failed run and a restart looked exactly alike from the outside.
+// A line for a browser start that finds the folder out of reach - the one case
+// where the start explains what follows: the next run will fail, and it is not
+// the run's fault. Access that is simply still there is not news, and a line
+// saying "granted" read as if something had just been clicked.
 async function noteStart() {
-  let state = "no folder chosen";
+  let note;
   try {
     const dir = await loadDirHandle();
-    if (dir) state = await dir.queryPermission({ mode: "readwrite" });
+    const state = dir && await dir.queryPermission({ mode: "readwrite" });
+    if (state === "granted") return;
+    note = !dir ? "no folder chosen"
+      : state === "prompt" ? `folder access lapsed - last answer was "Allow this time"`
+      : `folder access: ${state}`;
   } catch (e) {
-    state = `could not be read: ${e.message}`;
+    note = `folder access could not be read: ${e.message}`;
   }
-  await record({ kind: KINDS.started, note: `folder permission: ${state}` });
+  await record({ kind: KINDS.started, note });
 }
 
 chrome.alarms.onAlarm.addListener(async a => {
