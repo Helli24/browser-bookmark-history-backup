@@ -97,11 +97,11 @@ No Web Store, no account, no installer — you point the browser at a folder.
 4. Turn on **Developer mode** (top right)
 5. **Load unpacked** → select the extracted `bookmark-history-backup` folder (the
    one containing `manifest.json`); from a clone, select `extension/`
-6. Click the icon → **Settings** → **Choose folder…**
-7. Whenever the browser asks about folder access — now, or later from the banner
-   that says **Confirm folder access** — choose **Allow on every visit**. Anything
-   else and the nightly run cannot write
-   ([why](#the-one-choice-that-matters-allow-on-every-visit)).
+6. Click the icon → **Settings** → **Choose folder…** and allow access
+7. **Close the settings tab and open it again.** The banner **Confirm folder
+   access** appears; click it and choose **Allow on every visit**. The browser only
+   offers that answer the second time it asks, and without it the nightly run
+   cannot write ([why](#the-one-choice-that-matters-allow-on-every-visit)).
 
 The browser will warn that the extension can read your browsing history. It can —
 that is the entire job. Nothing leaves your machine.
@@ -293,8 +293,9 @@ the case where nothing else would raise a hand.
 
 ## The one choice that matters: Allow on every visit
 
-When the browser asks whether this extension may write into your folder, it offers
-three answers. Only one of them lets the 3 a.m. run work:
+Picking the folder grants access only for the moment — the browser offers nothing
+else at that point. From the second time it asks, it offers three answers, and
+only one of them lets the 3 a.m. run work:
 
 | Answer | What happens |
 |---|---|
@@ -302,8 +303,8 @@ three answers. Only one of them lets the 3 a.m. run work:
 | Allow this time | The permission lasts only while a page of the extension (settings or popup) is open, and every restart clears it. The nightly run finds nothing holding it and cannot write. |
 | Don't allow | Nothing can be written. |
 
-(In German: *Bei jedem Besuch zulassen* / *Nur dieses Mal zulassen*. Edge is built
-on the same engine and should ask the same way; that part has not been tested.)
+(In German: *Bei jedem Besuch zulassen* / *Nur dieses Mal zulassen*.) Chrome and
+Edge behave identically here, both tested.
 
 Measured on one machine, not taken from documentation. With *Allow this time*:
 three nights with no page of the extension open, three failed runs; the browser
@@ -311,11 +312,11 @@ start the next morning found the permission gone. With *Allow on every visit*: t
 3 a.m. run wrote its files with no extension page open, and the permission was
 still there after three browser starts, one of them after a restart of the computer.
 
-The browser may not offer *Allow on every visit* the very first time, when you pick
-the folder. It does offer it when it asks again. So if the banner **Confirm folder
-access** turns up after a restart, that is the moment: click it and choose *Allow on
-every visit*. The banner says so too. Seeing the banner at all means the last answer
-was *Allow this time*.
+So the first grant, when you pick the folder, always behaves like *Allow this time*.
+That is why step 7 of [Install](#install) is there: close the settings tab, open it
+again, and the banner **Confirm folder access** brings up the question with all
+three answers. Missed it? The banner comes back after the next restart, and says
+which answer to pick. Once *Allow on every visit* is chosen, it does not come back.
 
 To check or take the permission back: `chrome://settings/content/filesystem`, or
 `edge://settings/content/filesystem` in Edge.
