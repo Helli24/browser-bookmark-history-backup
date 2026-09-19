@@ -1,8 +1,9 @@
 # Bookmark & History Backup
 
 A Manifest V3 extension for **Chrome and Edge** that writes your bookmarks and
-browsing history into a folder of your choice — daily, though the browser has a
-say in the timing ([the catch](#the-catch-the-nightly-run-usually-cannot-write)) —
+browsing history into a folder of your choice — daily, provided you pick the
+right answer once when the browser asks
+([the one choice that matters](#the-one-choice-that-matters-allow-on-every-visit)) —
 and answers the one question the browser's own history cannot:
 
 > "When was I first on `github.com/xyz`?"
@@ -97,6 +98,10 @@ No Web Store, no account, no installer — you point the browser at a folder.
 5. **Load unpacked** → select the extracted `bookmark-history-backup` folder (the
    one containing `manifest.json`); from a clone, select `extension/`
 6. Click the icon → **Settings** → **Choose folder…**
+7. Whenever the browser asks about folder access — now, or later from the banner
+   that says **Confirm folder access** — choose **Allow on every visit**. Anything
+   else and the nightly run cannot write
+   ([why](#the-one-choice-that-matters-allow-on-every-visit)).
 
 The browser will warn that the extension can read your browsing history. It can —
 that is the entire job. Nothing leaves your machine.
@@ -110,7 +115,7 @@ page index live. Overwrite-and-reload keeps everything.
 the version on the extension's card, the reload was missed.
 
 The folder can be anywhere, including a second partition, e.g. `D:\Chrome Backup`.
-The browser will ask for permission once.
+The browser asks for permission; see step 7 for which answer to give.
 
 Only the folder's name is shown afterwards, never its full path — the File System
 Access API deliberately withholds that from extensions, and there is no way around
@@ -286,41 +291,40 @@ wait for. It runs whenever the service worker wakes up, browser start included.
 The case worth catching is the schedule not running at all, and that is precisely
 the case where nothing else would raise a hand.
 
-## The catch: the nightly run usually cannot write
+## The one choice that matters: Allow on every visit
 
-Read this before relying on the schedule. **In practice the 3 a.m. run does not
-reach the disk**, and the extension is honest about it rather than quiet.
+When the browser asks whether this extension may write into your folder, it offers
+three answers. Only one of them lets the 3 a.m. run work:
 
-The permission to write into your folder is granted to a *page* of this extension,
-and the browser takes it back as soon as none is open. The settings page and the
-popup are pages; the background worker is not, and it is shut down after about
-thirty seconds of idleness anyway. At three in the morning there is nothing left
-holding the permission, so the write is refused.
+| Answer | What happens |
+|---|---|
+| **Allow on every visit** | The permission stays. The nightly run writes with no page of the extension open, and a browser or computer restart does not change that. |
+| Allow this time | The permission lasts only while a page of the extension (settings or popup) is open, and every restart clears it. The nightly run finds nothing holding it and cannot write. |
+| Don't allow | Nothing can be written. |
 
-Measured on a machine left running overnight: three nights with no page of the
-extension open, three failures. A fourth night with the settings page left open
-in an ordinary tab: the 3 a.m. run went through. And the browser start the next
-morning found the permission back at "prompt" — a restart clears it as well.
+(In German: *Bei jedem Besuch zulassen* / *Nur dieses Mal zulassen*. Edge is built
+on the same engine and should ask the same way; that part has not been tested.)
 
-**What works: leave the settings page open in a tab.** Nothing else is needed; the
-tab does not have to be in front, and pinning it keeps it out of the way. The
-browser still has to have been told once since it last started, so after a restart
-the first thing is one click on the banner.
+Measured on one machine, not taken from documentation. With *Allow this time*:
+three nights with no page of the extension open, three failed runs; the browser
+start the next morning found the permission gone. With *Allow on every visit*: the
+3 a.m. run wrote its files with no extension page open, and the permission was
+still there after three browser starts, one of them after a restart of the computer.
 
-**Nothing is lost when that happens.** The backup is built all the same and goes
-into a queue, the icon gets a `!`, and the next time you open the extension
+The browser may not offer *Allow on every visit* the very first time, when you pick
+the folder. It does offer it when it asks again. So if the banner **Confirm folder
+access** turns up after a restart, that is the moment: click it and choose *Allow on
+every visit*. The banner says so too. Seeing the banner at all means the last answer
+was *Allow this time*.
+
+To check or take the permission back: `chrome://settings/content/filesystem`, or
+`edge://settings/content/filesystem` in Edge.
+
+**Nothing is lost if a night fails anyway.** The backup is built all the same and
+goes into a queue, the icon gets a `!`, and the next time you open the extension
 everything is written out — including the daily history logs for the days in
-between, which are rebuilt from the browser if the queue ever drops them.
-
-Without that tab, the honest description is: the schedule decides *what* gets
-collected, and your next visit decides *when* it lands on disk. If you open the
-extension every few days, you will never notice. If you do not open it for three
-days, it says so — see [When it stops](#when-it-stops).
-
-Getting rid of this would take a native messaging host — a small local program the
-browser launches, which is not bound by this rule. That is deliberately *not* part
-of this project, because it needs setting up on every machine, and the whole point
-here is that there is nothing to install.
+between, which are rebuilt from the browser if the queue ever drops them. If that
+goes on for three days, it says so — see [When it stops](#when-it-stops).
 
 ## Restoring
 

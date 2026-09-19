@@ -110,10 +110,10 @@ chrome.runtime.onStartup.addListener(async () => {
   await catchUpIfDue(KINDS.catchup);
 });
 
-// A line for every browser start, with the folder permission as it is found. The
-// permission is known to be dropped by a restart - what the log could not show
-// until now is whether anything else drops it while the browser keeps running,
-// because a failed run and a restart looked exactly alike from the outside.
+// A line for every browser start, with the folder permission as it is found.
+// "prompt" here means the last grant was "Allow this time", which a restart
+// clears; "granted" means "Allow on every visit", which survives it. Without this
+// line a failed run and a restart looked exactly alike from the outside.
 async function noteStart() {
   let state = "no folder chosen";
   try {

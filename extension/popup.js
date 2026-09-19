@@ -32,9 +32,9 @@ async function render() {
   } else if (state !== "granted") {
     el.dot.className = "dot warn";
     el.statusText.textContent = "Confirm folder access";
-    el.statusSub.textContent = queue.length
-      ? `${queue.length} backup(s) waiting – one click is enough.`
-      : "The browser forgot the permission since the restart.";
+    el.statusSub.textContent =
+      (queue.length ? `${queue.length} backup(s) waiting. ` : "") +
+      `Pick "Allow on every visit" and it stays granted.`;
     el.btnBackup.textContent = "Grant and back up";
   } else {
     const good = lastRun?.ok;

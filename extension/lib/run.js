@@ -160,9 +160,9 @@ export async function getGrantedDir() {
     e.code = "NO_DIR";
     throw e;
   }
-  // The state goes into the message rather than a guess at what caused it. A
-  // restart is the known reason; whether anything else revokes it during a
-  // session is exactly what the log is there to show.
+  // The state goes into the message rather than a guess at what caused it. The
+  // usual reason is a grant of "Allow this time", which lapses once no page of
+  // the extension is open and on every restart; "Allow on every visit" does not.
   const state = await dir.queryPermission({ mode: "readwrite" });
   if (state !== "granted") {
     const e = new Error(`Folder permission is "${state}" - it takes one click to confirm.`);

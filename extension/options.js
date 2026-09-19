@@ -81,10 +81,13 @@ async function render() {
   const { queue = [], lastRun } = await chrome.storage.local.get(["queue", "lastRun"]);
   const needsClick = dir && state !== "granted";
   el.permBanner.hidden = !needsClick;
+  // Seeing this at all means the last grant was "Allow this time": the other
+  // choice survives closed tabs and restarts, measured. So the fix is named here,
+  // at the one moment the browser's dialog is about to offer it.
   if (needsClick) {
-    el.permBannerText.textContent = queue.length
-      ? `${queue.length} backup(s) are waiting to be written.`
-      : "The browser forgot the permission after the restart.";
+    el.permBannerText.textContent =
+      (queue.length ? `${queue.length} backup(s) are waiting to be written. ` : "") +
+      `Choose "Allow on every visit" when asked, and the nightly run can write on its own from then on.`;
   }
 
   const alarm = await chrome.alarms.get("daily");
@@ -102,7 +105,7 @@ async function render() {
       ? "The folder is set, but no run has finished yet."
       : `The last one that wrote anything was ${formatWhen(old.at)}. ` +
         (needsClick
-          ? "The folder permission is gone since the browser restarted."
+          ? "The folder permission has lapsed - confirm it below."
           : `Anything past ${STALE_DAYS} days is flagged here. The activity log below says what happened.`);
   }
 
