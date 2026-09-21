@@ -368,8 +368,9 @@ Settings → **Recent activity**, collapsed by default, and the same lines as
 `Index\activity.log`.
 
 Not only backup runs: restores, one-off imports, schema migrations and failed
-attempts all get a line. When, what kind, how many files, and the page and visit
-totals afterwards. The last 1,000 are kept in both places — roughly nine months at
+attempts all get a line. When, what kind, how many files, the page and visit
+totals afterwards — on the settings page with the growth since the line before
+next to them, a drop in red — and whether the bookmarks were saved or unchanged. The last 1,000 are kept in both places — roughly nine months at
 a few runs a day. It is a window, not an archive.
 
 The individual line is rarely interesting. The series is: **those totals should

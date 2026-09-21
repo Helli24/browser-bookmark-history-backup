@@ -375,6 +375,22 @@ const text = L.logToText(entries);
 check("log file is newest first", text.indexOf("manual") < text.indexOf("scheduled"), true);
 await L.clearLog();
 
+// Bookmarks have their own field now; entries from before kept it in the note.
+check("bookmarks: unchanged run", L.bookmarksDone({ bookmarksUnchanged: true }), "unchanged");
+check("bookmarks: written run", L.bookmarksDone({ bookmarkHash: "x" }), "saved");
+check("bookmarks: switched off says nothing", L.bookmarksDone({}), undefined);
+check("bookmarks: old note becomes the field",
+      JSON.stringify(L.readBookmarks({ kind: "scheduled", ok: true, files: 5, note: "bookmarks unchanged" })),
+      JSON.stringify({ bookmarks: "unchanged", note: "" }));
+check("bookmarks: old run without that note had saved them",
+      L.readBookmarks({ kind: "scheduled", ok: true, files: 7, note: "" }).bookmarks, "saved");
+check("bookmarks: a failed run saved nothing",
+      L.readBookmarks({ kind: "scheduled", ok: false, note: "queued - x" }).bookmarks, "");
+check("bookmarks: a browser start is not a run",
+      L.readBookmarks({ kind: "browser start", note: "no folder chosen" }).note, "no folder chosen");
+check("bookmarks: the log file says it in words",
+      L.logToText([{ at: 0, kind: "scheduled", files: 5, bookmarks: "unchanged" }]).includes("bookmarks unchanged"), true);
+
 // A migration note has to survive the context that produced it. The upgrade runs
 // wherever the database is opened first - often the popup, which is closed again
 // long before the next backup writes the log.

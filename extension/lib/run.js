@@ -3,7 +3,7 @@ import {
   loadDirHandle, mergePages, allPages, countPages,
   mergeVisits, visitsInYear, countVisits, takeMigrationNotes
 } from "./db.js";
-import { addLog, getLog, logToText, KINDS } from "./log.js";
+import { addLog, getLog, logToText, bookmarksDone, KINDS } from "./log.js";
 import {
   dateKey, collectBookmarks, collectHistory, collectAllHistory, historyToText,
   indexToCsv, indexToJsonl, visitsToJsonl
@@ -275,7 +275,7 @@ export async function runBackup(reason = "alarm") {
     await record({
       kind: reason, ok: true, files: lastRun.written,
       pages: info.indexTotal, visits: info.visitsTotal,
-      note: info.bookmarksUnchanged ? "bookmarks unchanged" : ""
+      bookmarks: bookmarksDone(info)
     }, dir);
     return { ok: true, lastRun };
   } catch (e) {

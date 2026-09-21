@@ -24,6 +24,24 @@ export const KINDS = {
   started: "browser start"   // so a failure can be told apart from a restart
 };
 
+// What a run did with the bookmarks, as its own field: in the note it repeated
+// every night and buried whatever the note had to say. Undefined when bookmarks
+// are switched off, so the column stays empty rather than claiming something.
+export function bookmarksDone(info) {
+  if (info.bookmarksUnchanged) return "unchanged";
+  if (info.bookmarkHash) return "saved";
+  return undefined;
+}
+
+// Entries written before that field existed kept the same fact in the note.
+const RUN_KINDS = new Set([KINDS.scheduled, KINDS.manual, KINDS.popup, KINDS.catchup]);
+export function readBookmarks(e) {
+  if (e.bookmarks) return { bookmarks: e.bookmarks, note: e.note || "" };
+  if (e.note === "bookmarks unchanged") return { bookmarks: "unchanged", note: "" };
+  const saved = RUN_KINDS.has(e.kind) && e.ok !== false && e.files > 0;
+  return { bookmarks: saved ? "saved" : "", note: e.note || "" };
+}
+
 export async function addLog(entry) {
   const { runLog = [] } = await chrome.storage.local.get("runLog");
   runLog.push({ at: Date.now(), ...entry });
@@ -53,7 +71,9 @@ export function logToText(entries) {
     if (e.files != null) parts.push(`${e.files} files`);
     if (e.pages != null) parts.push(`${e.pages} pages`);
     if (e.visits != null) parts.push(`${e.visits} visits`);
-    if (e.note) parts.push(e.note);
+    const { bookmarks, note } = readBookmarks(e);
+    if (bookmarks) parts.push(`bookmarks ${bookmarks}`);
+    if (note) parts.push(note);
     return parts.join("  ");
   });
   return header.concat(lines, [""]).join("\r\n");

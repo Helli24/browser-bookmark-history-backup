@@ -4,7 +4,7 @@ import {
   getSettings, setSettings, importIndex, backfillAll, record, flushMigrationNotes,
   staleness, STALE_DAYS, DEFAULTS
 } from "./lib/run.js";
-import { getLog, KINDS } from "./lib/log.js";
+import { getLog, readBookmarks, KINDS } from "./lib/log.js";
 import {
   searchPages, countPages, countVisits, visitsForUrl, collectStats, bucketRange,
   mergePages, mergeVisits
@@ -125,24 +125,47 @@ async function renderLog() {
   const entries = await getLog();
   el.logCount.textContent = entries.length ? `· ${n(entries.length)}` : "· none yet";
 
-  const rows = [...entries].reverse().slice(0, 200).map(e => {
+  // Growth since the previous entry that had a count, whatever kind it was: the
+  // totals are there to show a drop, the difference is what a morning look is for.
+  const before = new Array(entries.length);
+  let last = {};
+  entries.forEach((e, i) => {
+    before[i] = last;
+    last = { pages: e.pages ?? last.pages, visits: e.visits ?? last.visits };
+  });
+
+  const cell = (text, cls) => {
+    const td = document.createElement("td");
+    td.textContent = text;
+    if (cls) td.className = cls;
+    return td;
+  };
+  const counted = (value, prev, unit) => {
+    const td = cell(value != null ? `${n(value)} ${unit}` : "");
+    if (value == null || prev == null || value === prev) return td;
+    const d = document.createElement("span");
+    d.className = value > prev ? "delta" : "delta bad";
+    d.textContent = value > prev ? ` +${n(value - prev)}` : ` −${n(prev - value)}`;
+    td.appendChild(d);
+    return td;
+  };
+
+  const rows = [];
+  for (let i = entries.length - 1; i >= 0 && rows.length < 200; i--) {
+    const e = entries[i];
+    const { bookmarks, note } = readBookmarks(e);
     const tr = document.createElement("tr");
-    const cell = (text, cls) => {
-      const td = document.createElement("td");
-      td.textContent = text;
-      if (cls) td.className = cls;
-      return td;
-    };
     tr.append(
       cell(formatWhen(e.at)),
       cell(e.kind || "", e.ok === false ? "bad" : "kind"),
       cell(e.files != null ? `${n(e.files)} files` : ""),
-      cell(e.pages != null ? `${n(e.pages)} pages` : ""),
-      cell(e.visits != null ? `${n(e.visits)} visits` : ""),
-      cell(e.note || "", "note")
+      counted(e.pages, before[i].pages, "pages"),
+      counted(e.visits, before[i].visits, "visits"),
+      cell(bookmarks ? `bookmarks ${bookmarks}` : ""),
+      cell(note, "note")
     );
-    return tr;
-  });
+    rows.push(tr);
+  }
   el.logRows.replaceChildren(...rows);
 }
 

@@ -4,6 +4,7 @@
 import { loadDirHandle, saveDirHandle } from "./db.js";
 import { buildFiles, writeAll, flushQueue, getSettings, badge, record, FOLDERS } from "./run.js";
 import { dateKey } from "./collect.js";
+import { bookmarksDone } from "./log.js";
 
 export async function permissionState() {
   const dir = await loadDirHandle();
@@ -60,7 +61,7 @@ export async function backupNow(reason = "manual") {
   await record({
     kind: reason, ok: true, files: lastRun.written,
     pages: info.indexTotal, visits: info.visitsTotal,
-    note: info.bookmarksUnchanged ? "bookmarks unchanged" : ""
+    bookmarks: bookmarksDone(info)
   }, dir);
   return lastRun;
 }
