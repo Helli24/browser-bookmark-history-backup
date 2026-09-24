@@ -224,6 +224,16 @@ check("search: date range and term together",
 
 check("search: sorts by last visit",
       titles(await D.searchPages("example.com", 300, { sortBy: "last", newestFirst: true })), "ACB");
+
+// Counts tie constantly, so equal ones must fall back to the latest visit: A and
+// B were both opened once, and A more recently.
+await D.mergePages([{ url: "https://example.com/c", title: "C", host: "example.com", first: day(12), last: day(13), count: 5 }]);
+check("search: most visited first, ties by latest visit",
+      titles(await D.searchPages("example.com", 300, { sortBy: "count", newestFirst: true })), "CAB");
+check("search: fewest visits first on request",
+      titles(await D.searchPages("example.com", 300, { sortBy: "count" })), "ABC");
+check("search: the limit keeps the most visited",
+      titles(await D.searchPages("example.com", 1, { sortBy: "count", newestFirst: true })), "C");
 // The range follows the field it names while the order stays where it was: A and
 // C are the two last seen from the 13th on, still listed by first visit.
 check("search: a range on last visit leaves the order alone",

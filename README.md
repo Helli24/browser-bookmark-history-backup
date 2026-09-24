@@ -210,8 +210,10 @@ scheme, `www.` and a trailing slash are ignored on both sides, so
 Each row carries two dates: **first visit** and **last visit**. Click either
 header to sort by it, click the one already sorted to turn it around. First visit
 is the default, oldest first, because that is what the index exists for — but
-"what did I have open yesterday" is a question about the other column. Click the
-visit count to expand a row into the individual timestamps.
+"what did I have open yesterday" is a question about the other column. The
+**Visits** header sorts by how often a page was opened, most first; equal counts
+go by the latest visit. Click the visit count in a row to expand it into the
+individual timestamps.
 
 The two date fields narrow the results to a window, with either end optional: a
 `from` alone means "since then", a `to` alone means "before that". The dropdown

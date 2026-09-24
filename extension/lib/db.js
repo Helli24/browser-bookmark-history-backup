@@ -164,9 +164,15 @@ export const countPages = () =>
 // match in memory: a row that cannot beat the current last one is dropped where it
 // is found. Sorting the whole result and then slicing would do the same thing, but
 // the number of matches is not bounded by anything the user can see.
+//
+// Visit counts tie all the time - hundreds of pages were opened exactly once - so
+// equal counts fall back to the most recent visit, which is the one worth seeing.
 function topRows(limit, newestFirst, field) {
   const rows = [];
-  const before = (a, b) => (newestFirst ? a[field] > b[field] : a[field] < b[field]);
+  const before = (a, b) => {
+    if (a[field] !== b[field]) return newestFirst ? a[field] > b[field] : a[field] < b[field];
+    return field === "count" && a.last > b.last;
+  };
   return {
     rows,
     offer(v) {
@@ -194,8 +200,9 @@ const noSlash = s => (s.length > 1 && s.endsWith("/") ? s.slice(0, -1) : s);
 // only way to ask for a site's front page: "facebook.com" cannot otherwise be
 // separated from the thousands of pages underneath it.
 //
-// `sortBy` and `dateField` are "first" or "last" and are deliberately separate:
-// changing the order should not silently change what a date range means.
+// `sortBy` is "first", "last" or "count"; `dateField` is "first" or "last". They
+// are deliberately separate: changing the order should not silently change what a
+// date range means. `newestFirst` means descending, so for counts: most first.
 export function searchPages(term, limit = 300, opts = {}) {
   const {
     from = null, to = null, dateField = "first",

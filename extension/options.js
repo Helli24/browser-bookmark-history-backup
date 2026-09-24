@@ -316,14 +316,19 @@ el.btnClearDates.addEventListener("click", () => {
   doSearch();
 });
 
-// Clicking the column that is already sorted turns it around; clicking the other
+// Clicking the column that is already sorted turns it around; clicking another
 // one switches to it and starts at the end people mean by it - the first time you
-// saw something, the last time you were there.
+// saw something, the last time you were there, the pages you open most.
+const SORT_NAMES = { first: "first visit", last: "last visit", count: "number of visits" };
+const sortEnd = () => sortBy === "count"
+  ? (newestFirst ? "most visited" : "least visited")
+  : (newestFirst ? "newest" : "oldest");
+
 for (const btn of document.querySelectorAll("th .sort")) {
   btn.addEventListener("click", () => {
     const field = btn.dataset.field;
     if (field === sortBy) newestFirst = !newestFirst;
-    else { sortBy = field; newestFirst = field === "last"; }
+    else { sortBy = field; newestFirst = field !== "first"; }
     markSort();
     doSearch();
   });
@@ -335,8 +340,8 @@ function markSort() {
     btn.classList.toggle("active", on);
     btn.querySelector("span").textContent = on ? (newestFirst ? "↓" : "↑") : "";
     btn.title = on
-      ? `Sorted ${newestFirst ? "newest" : "oldest"} first – click to turn around`
-      : `Sort by ${btn.dataset.field === "first" ? "first" : "last"} visit`;
+      ? `Sorted ${sortEnd()} first – click to turn around`
+      : `Sort by ${SORT_NAMES[btn.dataset.field]}`;
   }
 }
 markSort();
@@ -374,7 +379,7 @@ async function doSearch() {
 
   const dateField = el.dateField.value;
   const { hits, total } = await searchPages(q, 300, { from, to, dateField, sortBy, newestFirst });
-  const end = newestFirst ? "newest" : "oldest";
+  const end = sortEnd();
   el.searchInfo.replaceChildren(document.createTextNode(total
     ? `${n(total)} ${total === 1 ? "match" : "matches"}` +
       (total > hits.length ? `, showing the ${hits.length} ${end}` : "")
