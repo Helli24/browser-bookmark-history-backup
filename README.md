@@ -1,5 +1,12 @@
 # Bookmark & History Backup
 
+<p align="center">
+  <a href="https://github.com/Helli24/browser-bookmark-history-backup/releases"><img alt="Latest version" src="https://img.shields.io/github/v/release/Helli24/browser-bookmark-history-backup?display_name=tag&label=version"></a>
+  <a href="https://github.com/Helli24/browser-bookmark-history-backup/releases"><img alt="Downloads" src="https://img.shields.io/github/downloads/Helli24/browser-bookmark-history-backup/total?label=downloads"></a>
+  <a href="https://github.com/Helli24/browser-bookmark-history-backup/commits/main"><img alt="Last commit" src="https://img.shields.io/github/last-commit/Helli24/browser-bookmark-history-backup"></a>
+  <a href="LICENSE"><img alt="License" src="https://img.shields.io/github/license/Helli24/browser-bookmark-history-backup"></a>
+</p>
+
 A Manifest V3 extension for **Chrome and Edge** that writes your bookmarks and
 browsing history into a folder of your choice — daily, provided you pick the
 right answer once when the browser asks
