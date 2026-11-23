@@ -371,6 +371,14 @@ check("stale: a failed run does not count as a backup", (await R.staleness()).st
 await chrome.storage.local.remove("lastOkAt");
 await chrome.storage.local.set({ lastRun: { at: Date.now(), ok: true } });
 check("stale: falls back to an older install's lastRun", (await R.staleness()).stale, false);
+// The manual backup once left lastOkAt alone, so the warning stayed up after it.
+const coveredBefore = (await chrome.storage.local.get("historyCoveredThrough")).historyCoveredThrough;
+await chrome.storage.local.set({ lastOkAt: Date.now() - (R.STALE_DAYS + 1) * 864e5 });
+await R.markWritten({ at: Date.now(), day: "2026-11-23", ok: true });
+check("stale: any successful run clears the warning", (await R.staleness()).stale, false);
+check("stale: a successful run marks its day written",
+      (await chrome.storage.local.get("historyCoveredThrough")).historyCoveredThrough, "2026-11-23");
+await chrome.storage.local.set({ historyCoveredThrough: coveredBefore });
 await chrome.storage.local.remove(["lastOkAt", "lastRun"]);
 
 // ---- run log ----

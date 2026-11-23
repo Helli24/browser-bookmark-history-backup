@@ -268,9 +268,7 @@ export async function runBackup(reason = "alarm") {
       at: Date.now(), day, ok: true, reason,
       written: res.written + flushed, deleted: res.deleted, info
     };
-    // lastOkAt is kept apart from lastRun, which a later failure overwrites. The
-    // question "when did this last actually work" has to survive that.
-    await chrome.storage.local.set({ lastRun, lastOkAt: lastRun.at, historyCoveredThrough: day });
+    await markWritten(lastRun);
     await badge("");
     await record({
       kind: reason, ok: true, files: lastRun.written,
@@ -304,6 +302,19 @@ export async function runBackup(reason = "alarm") {
 // days is late enough not to nag over a long weekend away from the machine, and
 // early enough that a fortnight of silence cannot pass unseen.
 export const STALE_DAYS = 3;
+
+// Everything a run that reached the disk has to leave behind, in one place for
+// both paths - the scheduled one here and the click in ui.js. The click once set
+// only lastRun, so the overdue warning outlived a successful manual backup until
+// the next night's run cleared it.
+//
+// lastOkAt is kept apart from lastRun, which a later failure overwrites. The
+// question "when did this last actually work" has to survive that.
+export async function markWritten(lastRun) {
+  await chrome.storage.local.set({
+    lastRun, lastOkAt: lastRun.at, historyCoveredThrough: lastRun.day
+  });
+}
 
 // Days since the last run that actually wrote something, or null if there has
 // never been one. Reading storage only - no database, nothing to wait for.
