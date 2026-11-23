@@ -5,7 +5,7 @@ import {
 } from "./db.js";
 import { addLog, getLog, logToText, bookmarksDone, KINDS } from "./log.js";
 import {
-  dateKey, collectBookmarks, collectHistory, collectAllHistory, historyToText,
+  dateKey, fmtDateTime, collectBookmarks, collectHistory, collectAllHistory, historyToText,
   indexToCsv, indexToJsonl, visitsToJsonl
 } from "./collect.js";
 
@@ -254,7 +254,23 @@ export async function flushQueue(dir) {
 
 export async function runBackup(reason = "alarm") {
   const cfg = await getSettings();
-  const { files, info, day } = await buildFiles(cfg);
+  let built;
+  try {
+    built = await buildFiles(cfg);
+  } catch (e) {
+    // Collecting failed, so there is nothing to queue - but the failure must not
+    // vanish. It once sat outside every handler here: no log line, no mark on the
+    // icon, nothing, for as long as it kept happening.
+    const lastRun = {
+      at: Date.now(), day: dateKey(), ok: false, reason,
+      error: e.message, code: e.code || ""
+    };
+    await chrome.storage.local.set({ lastRun });
+    await badge("!");
+    await record({ kind: reason, ok: false, note: `could not collect - ${e.message}` });
+    return { ok: false, lastRun };
+  }
+  const { files, info, day } = built;
   if (!files.length) {
     return { ok: true, note: "Nothing enabled - there is nothing to back up." };
   }
@@ -325,6 +341,47 @@ export async function staleness() {
   if (!at) return { at: null, days: null, stale: false, never: true };
   const days = Math.floor((Date.now() - at) / 864e5);
   return { at, days, stale: days >= STALE_DAYS, never: false };
+}
+
+/* ---------------- Watchdog ---------------- */
+
+// The overdue check used to run only when something woke the worker anyway: a
+// browser start, the nightly alarm, an install. With the browser left running and
+// the alarm not going off, nothing ever asked - five days passed in November
+// without a mark or a line. This runs on a timer of its own and reads storage
+// only, never the database, so it cannot get stuck on whatever stopped the run.
+export const NOTICE_KEY = "staleNoticeDay";
+const HANG_MS = 60 * 60 * 1000;
+
+// quiet: set the mark, but leave the once-a-day notification for later - used at
+// browser start, before the catch-up run has had its chance to fix things.
+// Returns the staleness, plus notify: true when today's notification is due.
+export async function watch({ quiet = false } = {}) {
+  const st = await chrome.storage.local.get(
+    ["queue", "lastRun", "lastAlarmAt", "hangNotedAt", NOTICE_KEY]);
+
+  // The nightly run marks its start before anything else. A start with no result
+  // an hour later means it hung - the one thing the log could never tell before.
+  const { lastAlarmAt } = st;
+  if (lastAlarmAt && lastAlarmAt !== st.hangNotedAt &&
+      (st.lastRun?.at ?? 0) < lastAlarmAt && Date.now() - lastAlarmAt > HANG_MS) {
+    await chrome.storage.local.set({ hangNotedAt: lastAlarmAt });
+    await record({
+      kind: KINDS.watchdog, ok: false,
+      note: `the run that started ${fmtDateTime(lastAlarmAt)} never finished`
+    });
+  }
+
+  const old = await staleness();
+  await badge((st.queue || []).length || old.stale ? "!" : "");
+
+  if (!old.stale) {
+    if (st[NOTICE_KEY]) await chrome.storage.local.remove(NOTICE_KEY);
+    return { ...old, notify: false };
+  }
+  if (quiet || st[NOTICE_KEY] === dateKey()) return { ...old, notify: false };
+  await chrome.storage.local.set({ [NOTICE_KEY]: dateKey() });
+  return { ...old, notify: true };
 }
 
 // Moves whatever a schema migration parked in storage into the log. Called before

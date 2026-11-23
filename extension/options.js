@@ -60,7 +60,18 @@ async function render() {
   // Only overwrite while the field is idle, so typing is never interrupted.
   if (document.activeElement !== el.folderNote) el.folderNote.value = cfg.folderNote || "";
 
-  const { dir, state } = await permissionState();
+  // "No folder chosen yet" used to be the text in the HTML, so a check that never
+  // came back looked exactly like a folder that was gone.
+  let dir, state;
+  try {
+    ({ dir, state } = await permissionState());
+  } catch (e) {
+    const span = document.createElement("span");
+    span.className = "m-err";
+    span.textContent = `Could not read the stored folder: ${e.message}`;
+    el.folderName.replaceChildren(span);
+    throw e;
+  }
   el.folderName.textContent = "";
   if (dir) {
     const strong = document.createElement("strong");
@@ -799,5 +810,12 @@ if (asked) {
   el.search.select();
 }
 
-await render();
+// A failed start says so where the status normally is, and the search still
+// gets its chance - it may fail on its own, or it may not.
+try {
+  await render();
+} catch (e) {
+  el.statusLine.textContent = `The extension's data could not be read: ${e.message}`;
+  el.statusLine.classList.add("m-err");
+}
 await doSearch();

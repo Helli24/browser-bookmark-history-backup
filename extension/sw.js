@@ -1,5 +1,5 @@
 // Background service worker: schedule, catch-up for missed runs, UI requests.
-import { getSettings, setSettings, runBackup, badge, staleness, record } from "./lib/run.js";
+import { getSettings, setSettings, runBackup, record, watch } from "./lib/run.js";
 import { KINDS } from "./lib/log.js";
 import { searchPages, countPages, loadDirHandle } from "./lib/db.js";
 import { dateKey } from "./lib/collect.js";
@@ -32,16 +32,50 @@ async function catchUpIfDue(reason) {
   if (Date.now() >= dueAt.getTime()) await runBackup(reason);
 }
 
-// Anything that wants attention shows the same mark; the popup says which it is.
-// Checked wherever the worker happens to wake up, because the case worth catching
-// - the schedule silently not running at all - is exactly the one where nothing
-// else would set it.
-async function restoreBadge() {
-  const { queue = [] } = await chrome.storage.local.get("queue");
-  if (queue.length) return badge("!");
-  const { stale } = await staleness();
-  await badge(stale ? "!" : "");
+/* ---------------- Watchdog ---------------- */
+
+const WATCH = "watchdog";
+const WATCH_EVERY_MIN = 180;
+const NOTICE = "stale";
+
+// Created only when missing: re-creating it on every start would restart its
+// period each time, and a browser restarted often enough would never reach it.
+async function ensureWatch() {
+  if (!await chrome.alarms.get(WATCH)) {
+    await chrome.alarms.create(WATCH, { delayInMinutes: 1, periodInMinutes: WATCH_EVERY_MIN });
+  }
 }
+
+// Anything that wants attention shows the same mark; the popup says which it is.
+// Overdue gets more than the mark: a notification, once a day, because the mark
+// sits on an icon that is easy to have tucked away in the extensions menu - and
+// in November it went unseen for five days. The notification is the one part
+// here that reaches someone who is not looking.
+async function watchdog({ quiet = false } = {}) {
+  if (!await chrome.alarms.get(ALARM)) {
+    await schedule();
+    await record({ kind: KINDS.watchdog, ok: false, note: "the daily schedule was missing - set again" });
+  }
+  const s = await watch({ quiet });
+  if (!s.stale) return chrome.notifications.clear(NOTICE);
+  if (!s.notify) return;
+  chrome.notifications.create(NOTICE, {
+    type: "basic",
+    iconUrl: "notice.png",
+    title: s.never ? "Nothing backed up yet" : `No backup for ${s.days} days`,
+    message: s.never
+      ? "Bookmark & History Backup has not written anything yet."
+      : `Bookmark & History Backup last wrote to your folder on ${dateKey(new Date(s.at))}. ` +
+        "Click to see why.",
+    priority: 1
+  });
+}
+
+chrome.notifications.onClicked.addListener(id => {
+  if (id !== NOTICE) return;
+  chrome.notifications.clear(id);
+  chrome.runtime.openOptionsPage();
+});
 
 /* ---------------- Context menu ---------------- */
 
@@ -99,15 +133,20 @@ chrome.contextMenus.onClicked.addListener(async info => {
 chrome.runtime.onInstalled.addListener(async () => {
   installMenu();
   await schedule();
-  await restoreBadge();
+  await ensureWatch();
+  await watchdog({ quiet: true });
 });
 
+// The mark comes first, from storage alone: everything after it touches the
+// database, and if that stops answering, the mark must already be up.
 chrome.runtime.onStartup.addListener(async () => {
   installMenu();                        // cheap, and queued behind onInstalled if both fire
   await schedule();
+  await ensureWatch();
+  await watchdog({ quiet: true });      // the catch-up below may still fix it
   await noteStart();
-  await restoreBadge();
   await catchUpIfDue(KINDS.catchup);
+  await watchdog();
 });
 
 // A line for a browser start that finds the folder out of reach - the one case
@@ -130,10 +169,13 @@ async function noteStart() {
 }
 
 chrome.alarms.onAlarm.addListener(async a => {
+  if (a.name === WATCH) return watchdog();
   if (a.name !== ALARM) return;
+  // Before anything else: a start with no result is how a hung run shows up.
+  await chrome.storage.local.set({ lastAlarmAt: Date.now() });
   await runBackup(KINDS.scheduled);
   await schedule();                     // recompute so the wall-clock time survives DST
-  await restoreBadge();
+  await watchdog();
 });
 
 /* ---------------- Requests from popup and options page ---------------- */

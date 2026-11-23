@@ -286,19 +286,31 @@ A backup tool fails quietly. The alarm does not fire, the browser stays closed f
 a week, the same error repeats every night — and none of that is visible until the
 day the files are needed.
 
-So if nothing has been written for **three days**, the icon gets a mark, the popup
-leads with it, and the settings page opens with a banner naming the date of the
-last run that actually wrote something. The button there re-asks for the folder
-permission if that is what went missing, and runs the backup.
+So if nothing has been written for **three days**:
+
+- a **notification** appears, once a day, until a backup goes through — click it
+  and the settings page opens (this is what the `notifications` permission is for);
+- the icon gets a mark, and the popup leads with it;
+- the settings page opens with a banner naming the date of the last run that
+  actually wrote something. The button there re-asks for the folder permission if
+  that is what went missing, and runs the backup.
+
+The notification is there because the mark alone was not enough. In November the
+nightly run stopped for five days with the browser running the whole time, and
+nothing was noticed: the mark sits on an icon that is easily tucked away in the
+extensions menu, and the check behind it only ran when something woke the
+extension up — exactly what had stopped happening.
+
+So the check now has a **watchdog** of its own: a timer every three hours that
+reads a few values from storage and nothing else — no database, so it cannot get
+stuck on whatever stopped the run. It also puts the nightly schedule back if it
+has gone missing, and logs a nightly run that started but never finished. The
+database itself gives up after 20 seconds without an answer, so a hang becomes an
+error in the log instead of silence.
 
 "Last run that wrote something" is kept separately from "last run", which a later
 failure overwrites — otherwise a nightly error would keep resetting the clock it
 is supposed to trip.
-
-The check is a date comparison against a value in storage: no database, nothing to
-wait for. It runs whenever the service worker wakes up, browser start included.
-The case worth catching is the schedule not running at all, and that is precisely
-the case where nothing else would raise a hand.
 
 ## The one choice that matters: Allow on every visit
 
@@ -355,7 +367,8 @@ it was supposed to read.
 
 | File | Purpose |
 |---|---|
-| `sw.js` | Service worker: schedule, catch-up for missed runs, messaging |
+| `sw.js` | Service worker: schedule, catch-up for missed runs, watchdog, messaging |
+| `notice.png` | Icon of the overdue notification |
 | `lib/collect.js` | Reads the browser APIs, produces the file formats |
 | `lib/db.js` | IndexedDB: directory handle and page index |
 | `lib/log.js` | The rolling activity log |
@@ -369,7 +382,7 @@ it was supposed to read.
 | `test/preview.html` | Renders the options page outside an extension, for layout work |
 
 Permissions: `bookmarks`, `history`, `storage`, `alarms`, `unlimitedStorage`,
-`contextMenus`.
+`contextMenus`, `notifications`.
 
 ## The activity log
 

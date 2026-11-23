@@ -140,4 +140,10 @@ async function doSearch() {
   el.list.replaceChildren(...nodes);
 }
 
-await render();
+try {
+  await render();
+} catch (e) {
+  el.dot.className = "dot err";
+  el.statusText.textContent = "Could not read the extension's data";
+  el.statusSub.textContent = e.message;
+}

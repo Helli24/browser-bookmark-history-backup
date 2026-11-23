@@ -31,7 +31,33 @@ export async function takeMigrationNotes() {
   return notes;
 }
 
+// A database that never answers is worse than one that fails: nothing gets
+// logged, no mark appears, and every run just stops where it stands. Twenty
+// seconds because the service worker is shut down after about thirty idle ones,
+// and a timeout that never gets to fire would be no timeout at all.
+const OPEN_TIMEOUT_MS = 20000;
+
 function open() {
+  let timedOut = false;
+  let timer;
+  const opening = openNow().then(db => {
+    // Too late to be used: the caller has already been told it failed.
+    if (timedOut) { db.close(); throw new Error("database answered after the timeout"); }
+    return db;
+  });
+  const late = new Promise((_, reject) => {
+    timer = setTimeout(() => {
+      timedOut = true;
+      const e = new Error(`the extension's database did not answer within ${OPEN_TIMEOUT_MS / 1000} s`);
+      e.code = "DB_TIMEOUT";
+      reject(e);
+    }, OPEN_TIMEOUT_MS);
+  });
+  opening.catch(() => {});        // the loser of the race must not surface as unhandled
+  return Promise.race([opening, late]).finally(() => clearTimeout(timer));
+}
+
+function openNow() {
   return new Promise((resolve, reject) => {
     // Set while a migration note is on its way into storage.
     let noted = null;

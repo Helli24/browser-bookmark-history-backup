@@ -21,7 +21,8 @@ export const KINDS = {
   restored: "restored",      // read back from the backup folder
   adopted: "adopted",        // same, but triggered by picking the folder
   migrated: "migrated",      // database schema change
-  started: "browser start"   // so a failure can be told apart from a restart
+  started: "browser start",  // so a failure can be told apart from a restart
+  watchdog: "watchdog"       // something that should have happened, did not
 };
 
 // What a run did with the bookmarks, as its own field: in the note it repeated

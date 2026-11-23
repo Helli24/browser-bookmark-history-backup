@@ -25,6 +25,7 @@
       getVisits: ({ url }) => Promise.resolve(FAKE_VISITS[url] || [])
     },
     alarms: { create: () => {}, get: () => Promise.resolve(null), onAlarm: { addListener(){} } },
+    notifications: { create(){}, clear: () => Promise.resolve(), onClicked: { addListener(){} } },
     contextMenus: { create(){}, removeAll(cb){ cb && cb(); }, onClicked: { addListener(){} } },
     tabs: { create: () => Promise.resolve() },
     i18n: { getMessage: k => k, getUILanguage: () => "en" },
@@ -379,6 +380,39 @@ check("stale: any successful run clears the warning", (await R.staleness()).stal
 check("stale: a successful run marks its day written",
       (await chrome.storage.local.get("historyCoveredThrough")).historyCoveredThrough, "2026-11-23");
 await chrome.storage.local.set({ historyCoveredThrough: coveredBefore });
+
+// ---- watchdog ----
+const marks = [];
+chrome.action.setBadgeText = ({ text }) => { marks.push(text); return Promise.resolve(); };
+const ago = d => Date.now() - d * 864e5;
+await chrome.storage.local.remove(["lastRun", "queue", "lastAlarmAt", "hangNotedAt", R.NOTICE_KEY]);
+await chrome.storage.local.set({ lastOkAt: ago(R.STALE_DAYS + 2) });
+check("watch: overdue at browser start sets the mark",
+      (await R.watch({ quiet: true })).notify + ":" + marks.at(-1), "false:!");
+check("watch: quiet leaves the notification for later",
+      (await chrome.storage.local.get(R.NOTICE_KEY))[R.NOTICE_KEY], undefined);
+check("watch: overdue notifies", (await R.watch()).notify, true);
+check("watch: but only once a day", (await R.watch()).notify, false);
+await chrome.storage.local.set({ lastOkAt: Date.now() });
+check("watch: a fresh backup clears the mark",
+      (await R.watch()).notify + ":" + marks.at(-1), "false:");
+check("watch: and resets the once-a-day notice",
+      (await chrome.storage.local.get(R.NOTICE_KEY))[R.NOTICE_KEY], undefined);
+
+// A nightly run that started and never produced a result gets one line, once.
+const L0 = mods[base + "lib/log.js"];
+await L0.clearLog();
+await chrome.storage.local.set({ lastAlarmAt: Date.now() - 2 * 3600e3, lastRun: { at: ago(1), ok: true } });
+await R.watch(); await R.watch();
+const hung = (await L0.getLog()).filter(e => e.kind === "watchdog");
+check("watch: a run that never finished is logged once", hung.length, 1);
+check("watch: and says so", /never finished/.test(hung[0]?.note), true);
+await chrome.storage.local.set({ lastAlarmAt: Date.now() - 600e3 });
+await R.watch();
+check("watch: a run still within the hour is left alone",
+      (await L0.getLog()).filter(e => e.kind === "watchdog").length, 1);
+await L0.clearLog();
+await chrome.storage.local.remove(["lastAlarmAt", "hangNotedAt", R.NOTICE_KEY, "lastRun"]);
 await chrome.storage.local.remove(["lastOkAt", "lastRun"]);
 
 // ---- run log ----
